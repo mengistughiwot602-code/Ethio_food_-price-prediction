@@ -85,16 +85,20 @@ def load_model_assets():
     return None, str(e)
 
 
-# Load dataset function supporting both local file and browser upload
+# Load dataset function supporting browser upload, local path, and automatic GitHub raw link fallback
+@st.cache_data
 def load_dataset(uploaded_file=None):
   try:
     if uploaded_file is not None:
-      uploaded_file.seek(0)
       df = pd.read_excel(uploaded_file, header=0)
     elif os.path.exists("wfp_food_prices_et.xlsx"):
       df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
     else:
-      return None
+      # Optional fallback: Direct Raw URL to your GitHub repository file
+      # Replace with your actual public raw link if local detection fails
+      github_raw_url = "https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/wfp_food_prices_et.xlsx"
+      df = pd.read_excel(github_raw_url, header=0)
+
     df = df.drop(0).reset_index(drop=True)
     df["date"] = pd.to_datetime(df["date"])
     df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
@@ -116,23 +120,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    "An interactive decision-support application built for localized market"
-    " forecasting and price intelligence."
+    "An interactive decision-support application built for localized market forecasting and price intelligence."
 )
 
-# Navigation Sidebar
-menu = st.sidebar.radio(
-    "Navigation Menu", ["Dashboard Overview", "Model Prediction"]
+# Navigation Sidebar & File Uploader positioned at top level
+st.sidebar.markdown("### Navigation Menu")
+menu = st.sidebar.radio("Go to", ["Dashboard Overview", "Model Prediction"], label_visibility="collapsed")
+
+st.sidebar.markdown("---")
+uploaded_file = st.sidebar.file_uploader(
+    "📁 Override Dataset (Optional)", type=["xlsx"]
 )
+
+# Load dataset automatically from repository on startup
+df_data = load_dataset(uploaded_file)
 
 if menu == "Dashboard Overview":
   st.header("📈 Market Insights & Historical Data Visualizations")
-
-  # File uploader in sidebar placed FIRST so df_data loads immediately upon upload
-  uploaded_file = st.sidebar.file_uploader(
-      "📁 Upload Dataset (wfp_food_prices_et.xlsx)", type=["xlsx"]
-  )
-  df_data = load_dataset(uploaded_file)
 
   col1, col2, col3 = st.columns(3)
   with col1:
@@ -163,10 +167,7 @@ if menu == "Dashboard Overview":
 
     with map_col:
       st.subheader("🗺️ Geospatial Market Price Map")
-      st.write(
-          "Interactive map showing market monitoring locations across"
-          " Ethiopia."
-      )
+      st.write("Interactive map showing market monitoring locations across Ethiopia.")
       map_df = df_data.dropna(subset=["latitude", "longitude", "usdprice"])
       fig_map = px.scatter_mapbox(
           map_df.sample(min(len(map_df), 2000)),
@@ -206,9 +207,7 @@ if menu == "Dashboard Overview":
 
     # Row 2: Historical Trend Line Chart
     st.subheader("📉 Historical Staple Price Trends Over Time")
-    st.write(
-        "Long-term monthly average price evolution for core food commodities."
-    )
+    st.write("Long-term monthly average price evolution for core food commodities.")
 
     trend_df = (
         df_data.groupby(
@@ -243,19 +242,15 @@ if menu == "Dashboard Overview":
 
   else:
     st.warning(
-        "⚠️ Dataset not found locally. Please upload **wfp_food_prices_et.xlsx"
-        "** using the file uploader in the **sidebar** to render advanced"
-        " analytics."
+        "⚠️ Dataset could not be loaded automatically. Please verify that **wfp_food_prices_et.xlsx** is in your repository root directory or upload it using the sidebar."
     )
 
 elif menu == "Model Prediction":
   st.header("🎯 Real-Time Market Price Inference")
   st.markdown(
-      "Select actual geographic, market, and commodity parameters below to"
-      " evaluate predicted food prices."
+      "Select actual geographic, market, and commodity parameters below to evaluate predicted food prices."
   )
 
-  # Real Mappings
   admin1_mapping = {
       "Addis Ababa": 7,
       "Oromia": 8,
@@ -288,9 +283,7 @@ elif menu == "Model Prediction":
   }
 
   unit_mapping = {"KG": 0, "Quintal": 1, "Pound": 2, "Litre": 3}
-
   priceflag_mapping = {"Actual / Verified": 0, "Estimated / Imputed": 1}
-
   pricetype_mapping = {"Retail": 0, "Wholesale": 1}
 
   market_mapping = {
@@ -394,15 +387,13 @@ elif menu == "Model Prediction":
 
       if error_msg:
         st.error(
-            f"Could not process prediction. Serialized assets error:"
-            f" {error_msg}"
+            f"Could not process prediction. Serialized assets error: {error_msg}"
         )
       else:
         try:
           dt_date = pd.to_datetime(date_val)
           year = dt_date.year
           month = dt_date.month
-          quarter = (month - 1) // 3 + 1
           month_sin = np.sin(2 * np.pi * month / 12)
           month_cos = np.cos(2 * np.pi * month / 12)
 
