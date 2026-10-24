@@ -86,10 +86,10 @@ def load_model_assets():
 
 
 # Load dataset function supporting both local file and browser upload
-@st.cache_data
 def load_dataset(uploaded_file=None):
   try:
     if uploaded_file is not None:
+      uploaded_file.seek(0)
       df = pd.read_excel(uploaded_file, header=0)
     elif os.path.exists("wfp_food_prices_et.xlsx"):
       df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
@@ -101,7 +101,7 @@ def load_dataset(uploaded_file=None):
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     return df
-  except Exception:
+  except Exception as e:
     return None
 
 
@@ -128,7 +128,7 @@ menu = st.sidebar.radio(
 if menu == "Dashboard Overview":
   st.header("📈 Market Insights & Historical Data Visualizations")
 
-  # File uploader in sidebar placed FIRST so df_data loads immediately
+  # File uploader in sidebar placed FIRST so df_data loads immediately upon upload
   uploaded_file = st.sidebar.file_uploader(
       "📁 Upload Dataset (wfp_food_prices_et.xlsx)", type=["xlsx"]
   )
