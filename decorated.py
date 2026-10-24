@@ -118,15 +118,15 @@ if menu == "Dashboard Overview":
       "admin1": np.repeat(
           ["Addis Ababa", "Oromia", "Amhara", "Tigray", "Somali"], 100
       ),
-      "usdprice": np.random.exponential(scale=35, size=500),
+      "price": np.random.exponential(scale=35, size=500),
   })
 
   fig = px.box(
       sample_viz_data,
       x="admin1",
-      y="usdprice",
+      y="price",
       color="admin1",
-      title="USD Price Distributions across Selected Regions",
+      title=" Price Distributions across Selected Regions",
   )
   st.plotly_chart(fig, use_container_width=True)
 
