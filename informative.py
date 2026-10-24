@@ -85,11 +85,16 @@ def load_model_assets():
     return None, str(e)
 
 
-# Safely load dataset for dashboard analytics
+# Load dataset function supporting both local file and browser upload
 @st.cache_data
-def load_dataset():
+def load_dataset(uploaded_file=None):
   try:
-    df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
+    if uploaded_file is not None:
+      df = pd.read_excel(uploaded_file, header=0)
+    elif os.path.exists("wfp_food_prices_et.xlsx"):
+      df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
+    else:
+      return None
     df = df.drop(0).reset_index(drop=True)
     df["date"] = pd.to_datetime(df["date"])
     df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
@@ -99,8 +104,6 @@ def load_dataset():
   except Exception:
     return None
 
-
-df_data = load_dataset()
 
 # App Header Banner with Flag Image placed BEFORE the Title Text
 st.markdown(
@@ -124,6 +127,12 @@ menu = st.sidebar.radio(
 
 if menu == "Dashboard Overview":
   st.header("📈 Market Insights & Historical Data Visualizations")
+
+  # File uploader section if dataset isn't automatically detected locally
+  uploaded_file = st.sidebar.file_uploader(
+      "📁 Upload Dataset (wfp_food_prices_et.xlsx)", type=["xlsx"]
+  )
+  df_data = load_dataset(uploaded_file)
 
   col1, col2, col3 = st.columns(3)
   with col1:
@@ -210,13 +219,7 @@ if menu == "Dashboard Overview":
     )
     trend_df["date"] = trend_df["date"].dt.to_timestamp()
 
-    major_staples = [
-        "Maize (white)",
-        "Wheat",
-        "Sorghum",
-        "Rice",
-        "Teff",
-    ]  # fallback or dynamic
+    major_staples = ["Maize (white)", "Wheat", "Sorghum", "Rice", "Teff"]
     available_staples = [
         s for s in major_staples if s in trend_df["commodity"].unique()
     ]
@@ -239,8 +242,10 @@ if menu == "Dashboard Overview":
     st.plotly_chart(fig_trend, use_container_width=True)
 
   else:
-    st.info(
-        "Upload dataset 'wfp_food_prices_et.xlsx' to render advanced analytics."
+    st.warning(
+        "⚠️ Dataset not found locally. Please upload **wfp_food_prices_et.xlsx"
+        "** using the file uploader in the **sidebar** to render advanced"
+        " analytics."
     )
 
 elif menu == "Model Prediction":
@@ -418,6 +423,23 @@ elif menu == "Model Prediction":
               "month_cos": month_cos,
           }])
 
+          expected_cols = [
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "character",  # handled or expected columns
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
+          ]
+          # fixing expected columns list matching previous script
           expected_cols = [
               "admin1",
               "admin2",
