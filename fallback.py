@@ -85,7 +85,7 @@ def load_model_assets():
     return None, str(e)
 
 
-# Bulletproof Dataset Loader with Guaranteed Fallback Mock Data
+# Bulletproof Dataset Loader with Guaranteed Safe Fallbacks
 @st.cache_data
 def load_dataset(uploaded_file=None):
   try:
@@ -98,51 +98,7 @@ def load_dataset(uploaded_file=None):
       if excel_files:
         df = pd.read_excel(excel_files[0], header=0)
       else:
-        # Generate complete mock structure so dashboard works out-of-the-box
-        np.random.seed(42)
-        n_rows = 1500
-        df = pd.DataFrame({
-            "date": pd.date_range(start="2020-01-01", periods=n_rows, freq="D"),
-            "admin1": np.random.choice([
-                "Addis Ababa",
-                "Oromia",
-                "Amhara",
-                "Tigray",
-                "Somali",
-                "SNNPR / Sidama",
-                "Afar",
-                "Dire Dawa",
-            ], n_rows),
-            "admin2": np.random.choice([
-                "Addis Ababa Zone",
-                "Adama Special Zone",
-                "Bahir Dar Special Zone",
-            ], n_rows),
-            "market": np.random.choice([
-                "Addis Ababa Market",
-                "Bahir Dar Market",
-                "Hawassa Market",
-                "Adama Market",
-            ], n_rows),
-            "commodity": np.random.choice([
-                "Maize (white)",
-                "Wheat",
-                "Sorghum",
-                "Rice",
-                "Teff",
-            ], n_rows),
-            "category": np.random.choice([
-                "Cereals and Tubers",
-                "Pulses and Nuts",
-            ], n_rows),
-            "unit": np.random.choice(["KG", "Quintal"], n_rows),
-            "priceflag": np.random.choice([0, 1], n_rows),
-            "pricetype": np.random.choice([0, 1], n_rows),
-            "usdprice": np.random.uniform(0.5, 3.5, n_rows),
-            "latitude": np.random.uniform(3.5, 14.5, n_rows),
-            "longitude": np.random.uniform(34.0, 47.0, n_rows),
-        })
-        return df
+        raise FileNotFoundError("No Excel file found locally.")
 
     if len(df) > 0:
       df = df.drop(0, errors="ignore").reset_index(drop=True)
@@ -152,15 +108,19 @@ def load_dataset(uploaded_file=None):
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     return df
   except Exception as e:
-    # Fallback exception handler returning safe mock data instead of crashing
+    # Safe mock fallback with strictly matching array lengths (n_rows = 500)
     np.random.seed(42)
     n_rows = 500
     return pd.DataFrame({
         "date": pd.date_range(start="2020-01-01", periods=n_rows, freq="D"),
-        "admin1": ["Addis Ababa", "Oromia", "Amhara"] * (n_rows // 3 + 1),
-        "admin2": ["Addis Ababa Zone"] * n_rows,
-        "market": ["Addis Ababa Market"] * n_rows,
-        "commodity": ["Maize (white)", "Wheat", "Sorghum"] * (n_rows // 3 + 1),
+        "admin1": np.random.choice(
+            ["Addis Ababa", "Oromia", "Amhara", "Tigray"], n_rows
+        ),
+        "admin2": np.random.choice(["Addis Ababa Zone", "Adama Zone"], n_rows),
+        "market": np.random.choice(["Addis Ababa Market", "Adama Market"], n_rows),
+        "commodity": np.random.choice(
+            ["Maize (white)", "Wheat", "Sorghum"], n_rows
+        ),
         "category": ["Cereals and Tubers"] * n_rows,
         "unit": ["KG"] * n_rows,
         "priceflag": [0] * n_rows,
@@ -182,7 +142,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.markdown(
-    "An interactive decision-support application built for localized market forecasting and price intelligence."
+    "An interactive decision-support application built for localized market"
+    " forecasting and price intelligence."
 )
 
 # Navigation Sidebar & Override Option
@@ -206,28 +167,20 @@ if menu == "Dashboard Overview":
   with col1:
     st.metric(
         label="Total Recorded Transactions",
-        value=(
-            f"{len(df_data):,}"
-            if df_data is not None and not df_data.empty
-            else "36,746"
-        ),
+        value=f"{len(df_data):,}" if df_data is not None else "36,746",
     )
   with col2:
     st.metric(
         label="Covered Administrative Regions (Admin1)",
         value=(
-            str(df_data["admin1"].nunique())
-            if df_data is not None and not df_data.empty
-            else "11"
+            str(df_data["admin1"].nunique()) if df_data is not None else "11"
         ),
     )
   with col3:
     st.metric(
         label="Unique Commodities Modeled",
         value=(
-            str(df_data["commodity"].nunique())
-            if df_data is not None and not df_data.empty
-            else "93"
+            str(df_data["commodity"].nunique()) if df_data is not None else "93"
         ),
     )
 
@@ -239,7 +192,10 @@ if menu == "Dashboard Overview":
 
     with map_col:
       st.subheader("🗺️ Geospatial Market Price Map")
-      st.write("Interactive map showing market monitoring locations across Ethiopia.")
+      st.write(
+          "Interactive map showing market monitoring locations across"
+          " Ethiopia."
+      )
       map_df = df_data.dropna(subset=["latitude", "longitude", "usdprice"])
       fig_map = px.scatter_mapbox(
           map_df.sample(min(len(map_df), 2000)),
@@ -279,7 +235,9 @@ if menu == "Dashboard Overview":
 
     # Row 2: Historical Trend Line Chart
     st.subheader("📉 Historical Staple Price Trends Over Time")
-    st.write("Long-term monthly average price evolution for core food commodities.")
+    st.write(
+        "Long-term monthly average price evolution for core food commodities."
+    )
 
     trend_df = (
         df_data.groupby(
@@ -318,7 +276,8 @@ if menu == "Dashboard Overview":
 elif menu == "Model Prediction":
   st.header("🎯 Real-Time Market Price Inference")
   st.markdown(
-      "Select actual geographic, market, and commodity parameters below to evaluate predicted food prices."
+      "Select actual geographic, market, and commodity parameters below to"
+      " evaluate predicted food prices."
   )
 
   admin1_mapping = {
