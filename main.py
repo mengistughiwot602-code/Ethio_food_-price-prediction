@@ -77,7 +77,7 @@ def load_model_assets():
 
 
 # App Title
-st.title("ን Ethiopia Food Price Prediction & Market Analysis")
+st.title(" Ethiopian Food Price Prediction & Market Analysis")
 st.markdown(
     "An interactive decision-support application built for localized market"
     " forecasting."
@@ -88,16 +88,8 @@ menu = st.sidebar.radio("Navigation", ["Dashboard Overview", "Model Prediction"]
 
 # Display requirements.txt on the sidebar
 st.sidebar.markdown("--- ")
-st.sidebar.subheader("ኃ App Requirements (requirements.txt)")
-if os.path.exists("requirements.txt"):
-    with open("requirements.txt", "r") as f:
-        reqs_content = f.read()
-    st.sidebar.code(reqs_content, language="text")
-else:
-    st.sidebar.info("No requirements.txt file found in the app directory.")
-
 if menu == "Dashboard Overview":
-  st.header("ቃ Market Insights & Historical Data Visualizations")
+  st.header(" Market Insights & Historical Data Visualizations")
 
   col1, col2, col3 = st.columns(3)
   with col1:
@@ -130,7 +122,7 @@ if menu == "Dashboard Overview":
   st.plotly_chart(fig, use_container_width=True)
 
 elif menu == "Model Prediction":
-  st.header("ስ Real-Time Market Price Inference")
+  st.header(" Real-Time Market Price Inference")
   st.markdown("Select actual market values below to evaluate food prices.")
 
   # Dictionaries for ID encoding
