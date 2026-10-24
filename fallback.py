@@ -203,13 +203,13 @@ if menu == "Dashboard Overview":
           map_df.sample(min(len(map_df), 2000)),
           lat="latitude",
           lon="longitude",
-          color="usdprice",
-          size="usdprice",
+          color="price",
+          size="price",
           hover_name="market",
           hover_data=["admin1", "commodity", "usdprice"],
           color_continuous_scale=px.colors.sequential.Tealgrn,
           projection="natural earth",
-          title="Market Locations & USD Price Intensity",
+          title="Market Locations & Price Intensity",
       )
       fig_map.update_geos(
           center={"lat": 9.145, "lon": 40.489},
@@ -222,14 +222,14 @@ if menu == "Dashboard Overview":
 
     with box_col:
       st.subheader("📊 Regional Price Distributions")
-      st.write("USD price variance and outliers across administrative regions.")
+      st.write("price variance and outliers across administrative regions.")
       fig_box = px.box(
-          df_data.dropna(subset=["admin1", "usdprice"]),
+          df_data.dropna(subset=["admin1", "price"]),
           x="admin1",
-          y="usdprice",
+          y="price",
           color="admin1",
-          title="USD Price Spread by Region",
-          labels={"admin1": "Region", "usdprice": "Price (USD)"},
+          title="Price Spread by Region",
+          labels={"admin1": "Region", "price": "Price (USD)"},
       )
       fig_box.update_layout(
           showlegend=False,
@@ -249,7 +249,7 @@ if menu == "Dashboard Overview":
     trend_df = (
         df_data.groupby(
             [df_data["date"].dt.to_period("M"), "commodity"]
-        )["usdprice"]
+        )["price"]
         .mean()
         .reset_index()
     )
@@ -267,10 +267,10 @@ if menu == "Dashboard Overview":
     fig_trend = px.line(
         filtered_trend,
         x="date",
-        y="usdprice",
+        y="price",
         color="commodity",
-        title="Monthly Average Price Trend (USD)",
-        labels={"usdprice": "Price in USD", "date": "Date"},
+        title="Monthly Average Price Trend (ETB)",
+        labels={"usdprice": "Price in ETB", "date": "Date"},
     )
     fig_trend.update_layout(
         height=450, margin={"r": 0, "t": 40, "l": 0, "b": 0}
