@@ -128,7 +128,7 @@ menu = st.sidebar.radio(
 if menu == "Dashboard Overview":
   st.header("📈 Market Insights & Historical Data Visualizations")
 
-  # File uploader section if dataset isn't automatically detected locally
+  # File uploader in sidebar placed FIRST so df_data loads immediately
   uploaded_file = st.sidebar.file_uploader(
       "📁 Upload Dataset (wfp_food_prices_et.xlsx)", type=["xlsx"]
   )
@@ -423,23 +423,6 @@ elif menu == "Model Prediction":
               "month_cos": month_cos,
           }])
 
-          expected_cols = [
-              "admin1",
-              "admin2",
-              "market",
-              "latitude",
-              "longitude",
-              "character",  # handled or expected columns
-              "commodity",
-              "unit",
-              "priceflag",
-              "pricetype",
-              "year",
-              "month",
-              "month_sin",
-              "month_cos",
-          ]
-          # fixing expected columns list matching previous script
           expected_cols = [
               "admin1",
               "admin2",
