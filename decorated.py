@@ -7,8 +7,8 @@ import streamlit as st
 
 # Configure Page Settings
 st.set_page_config(
-    page_title="Ethiopia Food Price Prediction & Analytics",
-    page_icon="🇪🇹",
+    page_title="Ethiopian Food Price Prediction & Analytics",
+    page_icon="https://flagcdn.com/w80/et.png",
     layout="wide",
 )
 
