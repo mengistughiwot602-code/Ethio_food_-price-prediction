@@ -4,3 +4,10 @@ scikit-learn
 joblib
 streamlit
 plotly
+streamlit
+pandas
+numpy
+scikit-learn
+joblib
+plotly
+openpyxl
