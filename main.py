@@ -228,7 +228,7 @@ if menu == \"Dashboard Overview\":
                 [df_data[\"date\"].dt.to_period(\"M\"), \"commodity\"]
             )[\"usdprice\"]
             .mean()
-            .reset_index()
+            .reset_index\
         )
         trend_df[\"date\"] = trend_df[\"date\"].dt.to_timestamp()
 
@@ -315,9 +315,9 @@ elif menu == \"Model Prediction\":
         col_a, col_b = st.columns(2, gap=\"large\")
 
         with col_a:
-            st.markdown(
-                \'<div class="section-header">📍 Spatial & Temporal Details</div>\',
-                unsafe_allow_html=True,
+            st.markdown( 
+                \"\"\"<div class=\\\"section-header\\\">📍 Spatial & Temporal Details</div>\"\"\", 
+                unsafe_allow_html=True 
             )
 
             date_val = st.date_input(
@@ -354,7 +354,7 @@ elif menu == \"Model Prediction\":
 
         with col_b:
             st.markdown(
-                \'<div class="section-header">🛒 Market & Commodity Attributes</div>\',
+                \"\"\"<div class=\\\"section-header\\\">🛒 Market & Commodity Attributes</div>\"\"\",
                 unsafe_allow_html=True,
             )
 
@@ -452,4 +452,4 @@ elif menu == \"Model Prediction\":
 with open('main.py', 'w') as f:
     f.write(app_code)
 
-print("Successfully saved robust non-error-throwing main.py structure!")
+print("Successfully saved robust main.py structure!")
