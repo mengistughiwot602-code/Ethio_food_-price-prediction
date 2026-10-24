@@ -196,7 +196,7 @@ if menu == "Dashboard Overview":
           "Interactive map showing market monitoring locations across"
           " Ethiopia."
       )
-      map_df = df_data.dropna(subset=["latitude", "longitude", "usdprice"])
+      map_df = df_data.dropna(subset=["latitude", "longitude", "price"])
       
       # Using scatter_geo instead of scatter_mapbox to prevent Mapbox API token / attribute errors
       fig_map = px.scatter_geo(
