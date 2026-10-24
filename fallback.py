@@ -187,7 +187,7 @@ if menu == "Dashboard Overview":
   st.markdown("---")
 
   if df_data is not None and not df_data.empty:
-    # Row 1: Geospatial Map & Regional Boxplot side by side
+    # Row 1: Geospatial Scatter Map & Regional Boxplot side by side
     map_col, box_col = st.columns(2, gap="large")
 
     with map_col:
@@ -197,7 +197,9 @@ if menu == "Dashboard Overview":
           " Ethiopia."
       )
       map_df = df_data.dropna(subset=["latitude", "longitude", "usdprice"])
-      fig_map = px.scatter_mapbox(
+      
+      # Using scatter_geo instead of scatter_mapbox to prevent Mapbox API token / attribute errors
+      fig_map = px.scatter_geo(
           map_df.sample(min(len(map_df), 2000)),
           lat="latitude",
           lon="longitude",
@@ -206,9 +208,14 @@ if menu == "Dashboard Overview":
           hover_name="market",
           hover_data=["admin1", "commodity", "usdprice"],
           color_continuous_scale=px.colors.sequential.Tealgrn,
-          zoom=4.5,
-          mapbox_style="carto-positron",
+          projection="natural earth",
           title="Market Locations & USD Price Intensity",
+      )
+      fig_map.update_geos(
+          center={"lat": 9.145, "lon": 40.489},
+          projection_scale=7,
+          showcountries=True,
+          countrycolor="gray",
       )
       fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=400)
       st.plotly_chart(fig_map, use_container_width=True)
