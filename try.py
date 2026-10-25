@@ -108,7 +108,6 @@ def load_dataset(uploaded_file=None):
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     return df
   except Exception as e:
-    # Safe mock fallback with strictly matching array lengths (n_rows = 500)
     np.random.seed(42)
     n_rows = 500
     return pd.DataFrame({
@@ -206,7 +205,6 @@ if menu == "1. Dashboard Overview & File Prediction":
   if df_data is not None and not df_data.empty:
     col_comm, col_reg, col_health = st.columns(3, gap="large")
 
-    # Column 1: Commodity Summary
     with col_comm:
       st.markdown("#### 🛒 Top Commodities")
       st.caption("Ranked by frequency and average price.")
@@ -225,7 +223,6 @@ if menu == "1. Dashboard Overview & File Prediction":
       else:
         st.info("Commodity or price column missing.")
 
-    # Column 2: Regional Summary
     with col_reg:
       st.markdown("#### 🌍 Regional Volume")
       st.caption("Distribution across administrative regions.")
@@ -244,7 +241,6 @@ if menu == "1. Dashboard Overview & File Prediction":
       else:
         st.info("Admin1 or price column missing.")
 
-    # Column 3: Data Health & Quality Audit
     with col_health:
       st.markdown("#### 🔍 Data Scope & Quality")
       st.caption("Record audit and memory stats.")
@@ -585,4 +581,27 @@ elif menu == "3. Real-Time Model Prediction":
               "month_cos": month_cos,
           }])
 
-          expected_cols =
+          expected_cols = [
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "category",
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
+          ]
+          input_row = input_row[expected_cols]
+
+          prediction = model.predict(input_row)[0]
+          st.success(
+              f"✨ Predicted Local Market Price: **{prediction:,.2f} ETB**"
+          )
+        except Exception as ex:
+          st.error(f"Error processing prediction parameters: {ex}")
