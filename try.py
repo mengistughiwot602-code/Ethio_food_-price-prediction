@@ -292,9 +292,9 @@ if menu == "1. Dashboard Overview & File Prediction":
       st.warning("No numeric columns found for prediction.")
 
 # =============================================================================
-# PAGE 2: VISUALIZATIONS
+# PAGE 2:MrVISUALIZATIONS
 # =============================================================================
-elif menu == "2. Visualizations":
+elif menu == "2. Market Visualizations":
   st.header("📈 Market Insights & Historical Data Visualizations")
   st.markdown("---")
   if df_data is not None and not df_data.empty:
