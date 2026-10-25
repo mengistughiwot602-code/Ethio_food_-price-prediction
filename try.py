@@ -178,7 +178,7 @@ if menu == "1. Dashboard Overview & File Prediction":
   col1, col2, col3, col4 = st.columns(4)
   with col1:
     st.metric(
-        label="Total Recorded Transactions",
+        label="🧾 Total Recorded Transactions",
         value=f"{len(df_data):,}" if df_data is not None else "36,746",
     )
   with col2:
