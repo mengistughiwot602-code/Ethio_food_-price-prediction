@@ -355,14 +355,17 @@ if menu == "📊 1. Market Intelligence & Overview":
               "month_cos",
           ]
 
-          # Create X_batch copy for model inference with factorization
-          X_batch = df_predicted.copy()
-          for col in X_batch.select_dtypes(include=["object"]).columns:
-            if col != "date":
-              X_batch[col] = pd.factorize(X_batch[col])[0]
-
+          # Create X_batch by properly factorizing every object/text column independently
+          X_batch = pd.DataFrame()
           for col in expected_features:
-            if col not in X_batch.columns:
+            if col in df_predicted.columns:
+              if df_predicted[col].dtype == "object":
+                X_batch[col] = pd.factorize(df_predicted[col].astype(str))[0]
+              else:
+                X_batch[col] = pd.to_numeric(
+                    df_predicted[col], errors="coerce"
+                ).fillna(0)
+            else:
               X_batch[col] = 0
 
           X_batch = X_batch[expected_features]
