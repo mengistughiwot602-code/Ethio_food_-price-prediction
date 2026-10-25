@@ -338,11 +338,6 @@ if menu == "📊 1. Market Intelligence & Overview":
                 2 * np.pi * df_predicted["month"] / 12
             )
 
-          # Automatically convert text columns to numeric codes
-          for col in df_predicted.select_dtypes(include=["object"]).columns:
-            if col != "date":
-              df_predicted[col] = pd.factorize(df_predicted[col])[0]
-
           expected_features = [
               "admin1",
               "admin2",
@@ -360,11 +355,17 @@ if menu == "📊 1. Market Intelligence & Overview":
               "month_cos",
           ]
 
-          for col in expected_features:
-            if col not in df_predicted.columns:
-              df_predicted[col] = 0
+          # Create X_batch for model inference without altering df_predicted display texts
+          X_batch = df_predicted.copy()
+          for col in X_batch.select_dtypes(include=["object"]).columns:
+            if col != "date":
+              X_batch[col] = pd.factorize(X_batch[col])[0]
 
-          X_batch = df_predicted[expected_features]
+          for col in expected_features:
+            if col not in X_batch.columns:
+              X_batch[col] = 0
+
+          X_batch = X_batch[expected_features]
 
           # Predict ONLY the user's chosen target column dynamically
           if selected_target == "price":
