@@ -217,6 +217,76 @@ if menu == "📊 1. Market Intelligence & Overview":
     )
 
   st.markdown("---")
+
+  # Optimized 2-Column Layout to Prevent Right-Side Clipping / Cut-off
+  if df_data is not None and not df_data.empty:
+    col_left, col_right = st.columns([2, 1], gap="large")
+
+    with col_left:
+      tab1, tab2 = st.tabs(["🛒 Top Commodities", "🌍 Regional Volume"])
+      with tab1:
+        st.caption("Ranked by frequency and average price.")
+        if {"commodity", "price"}.issubset(df_data.columns):
+          comm_summary = (
+              df_data.groupby("commodity")
+              .agg(
+                  Transactions=("price", "count"),
+                  Avg_Price=("price", "mean"),
+              )
+              .reset_index()
+              .sort_values(by="Transactions", ascending=False)
+          )
+          comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
+          st.dataframe(comm_summary.head(10), use_container_width=True, height=300)
+        else:
+          st.info("Commodity or price column missing.")
+
+      with tab2:
+        st.caption("Distribution across administrative regions.")
+        if {"admin1", "price"}.issubset(df_data.columns):
+          reg_summary = (
+              df_data.groupby("admin1")
+              .agg(
+                  Transactions=("price", "count"),
+                  Avg_Price=("price", "mean"),
+              )
+              .reset_index()
+              .sort_values(by="Transactions", ascending=False)
+          )
+          reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
+          st.dataframe(reg_summary, use_container_width=True, height=300)
+        else:
+          st.info("Admin1 or price column missing.")
+
+    with col_right:
+      st.markdown("#### 🔍 Data Scope & Quality")
+      st.caption("Record audit and memory stats.")
+
+      if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(
+          df_data["date"]
+      ):
+        min_date = df_data["date"].min()
+        max_date = df_data["date"].max()
+        if pd.notna(min_date) and pd.notna(max_date):
+          st.metric(
+              "📅 Temporal Span",
+              f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
+          )
+        else:
+          st.metric("📅 Temporal Span", "N/A")
+      else:
+        st.metric("📅 Temporal Span", "N/A")
+
+      st.metric(
+          "🧹 Total Missing Cells", int(df_data.isna().sum().sum())
+      )
+      st.metric(
+          "💾 Memory Footprint",
+          f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
+      )
+      st.metric("✨ Duplicate Rows", int(df_data.duplicated().sum()))
+
+  st.markdown("---")
   st.subheader("🔮 Batch Price Prediction")
   st.write(
       "Run the trained machine learning model across all records in your active dataset."
@@ -295,13 +365,13 @@ if menu == "📊 1. Market Intelligence & Overview":
               df_predicted[col] = 0
 
           X_batch = df_predicted[expected_features]
-          df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-          # Dynamically evaluate based on the exact user selection
-          if selected_target == "usdprice":
-            df_predicted[f"Predicted_{selected_target}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
-          elif selected_target == "price":
-            df_predicted[f"Predicted_{selected_target}"] = df_predicted["Predicted_Price_ETB"]
+          # Predict ONLY the user's chosen target column dynamically
+          if selected_target == "price":
+            df_predicted["Predicted_price"] = model.predict(X_batch)
+          elif selected_target == "usdprice":
+            base_pred = model.predict(X_batch)
+            df_predicted["Predicted_usdprice"] = (base_pred / 57.0).round(2)
           else:
             df_predicted[f"Predicted_{selected_target}"] = df_predicted[
                 selected_target
