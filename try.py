@@ -183,12 +183,12 @@ if menu == "1. Dashboard Overview & File Prediction":
     )
   with col2:
     st.metric(
-        label="Covered Regions (Admin1)",
+        label="🏛️ Covered Regions (Admin1)",
         value=str(df_data["admin1"].nunique()) if df_data is not None else "11",
     )
   with col3:
     st.metric(
-        label="🌾Unique Commodities",
+        label="🌾 Unique Commodities",
         value=(
             str(df_data["commodity"].nunique()) if df_data is not None else "93"
         ),
