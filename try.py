@@ -170,7 +170,7 @@ df_data = load_dataset(uploaded_file)
 # PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
 # =============================================================================
 if menu == "1. Dashboard Overview & File Prediction":
-  st.header("📊 Key Dataset Insights & Aggregaions Overview")
+  st.header("📊 📌 Key Dataset Insights & Aggregaions Overview")
   st.write(
       "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
   )
