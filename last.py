@@ -355,28 +355,29 @@ if menu == "📊 1. Market Intelligence & Overview":
               "month_cos",
           ]
 
-          # Create X_batch for model inference without altering df_predicted display texts
-          X_batch = df_predicted.copy()
-          for col in X_batch.select_dtypes(include=["object"]).columns:
-            if col != "date":
-              X_batch[col] = pd.factorize(X_batch[col])[0]
-
+          # Build X_batch safely for model inference without altering display strings in df_predicted
+          X_batch = pd.DataFrame()
           for col in expected_features:
-            if col not in X_batch.columns:
+            if col in df_predicted.columns:
+              if df_predicted[col].dtype == "object":
+                X_batch[col] = pd.factorize(df_predicted[col])[0]
+              else:
+                X_batch[col] = pd.to_numeric(
+                    df_predicted[col], errors="coerce"
+                ).fillna(0)
+            else:
               X_batch[col] = 0
 
           X_batch = X_batch[expected_features]
+          base_preds = model.predict(X_batch)
 
-          # Predict ONLY the user's chosen target column dynamically
+          # Predict ONLY the user's chosen target column dynamically using model predictions
           if selected_target == "price":
-            df_predicted["Predicted_price"] = model.predict(X_batch)
+            df_predicted["Predicted_price"] = base_preds
           elif selected_target == "usdprice":
-            base_pred = model.predict(X_batch)
-            df_predicted["Predicted_usdprice"] = (base_pred / 57.0).round(2)
+            df_predicted["Predicted_usdprice"] = (base_preds / 57.0).round(2)
           else:
-            df_predicted[f"Predicted_{selected_target}"] = df_predicted[
-                selected_target
-            ] * np.random.uniform(0.97, 1.03, len(df_predicted))
+            df_predicted[f"Predicted_{selected_target}"] = base_preds
 
           st.success(
               f"Batch prediction completed successfully using Random Forest (Target: {selected_target})!"
