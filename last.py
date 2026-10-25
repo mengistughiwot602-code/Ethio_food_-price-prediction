@@ -215,76 +215,6 @@ if menu == "📊 1. Market Intelligence & Overview":
     )
 
   st.markdown("---")
-
-  # Horizontal Layout for Key Dataset Insights
-  if df_data is not None and not df_data.empty:
-    col_comm, col_reg, col_health = st.columns(3, gap="large")
-
-    with col_comm:
-      st.markdown("#### 🛒 Top Commodities")
-      st.caption("Ranked by frequency and average price.")
-      if {"commodity", "price"}.issubset(df_data.columns):
-        comm_summary = (
-            df_data.groupby("commodity")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
-        st.dataframe(comm_summary.head(8), use_container_width=True, height=280)
-      else:
-        st.info("Commodity or price column missing.")
-
-    with col_reg:
-      st.markdown("#### 🌍 Regional Volume")
-      st.caption("Distribution across administrative regions.")
-      if {"admin1", "price"}.issubset(df_data.columns):
-        reg_summary = (
-            df_data.groupby("admin1")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
-        st.dataframe(reg_summary, use_container_width=True, height=280)
-      else:
-        st.info("Admin1 or price column missing.")
-
-    with col_health:
-      st.markdown("#### 🔍 Data Scope & Quality")
-      st.caption("Record audit and memory stats.")
-
-      if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(
-          df_data["date"]
-      ):
-        min_date = df_data["date"].min()
-        max_date = df_data["date"].max()
-        if pd.notna(min_date) and pd.notna(max_date):
-          st.metric(
-              "📅 Temporal Span",
-              f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
-          )
-        else:
-          st.metric("📅 Temporal Span", "N/A")
-      else:
-        st.metric("📅 Temporal Span", "N/A")
-
-      st.metric(
-          "🧹 Total Missing Cells", int(df_data.isna().sum().sum())
-      )
-      st.metric(
-          "💾 Memory Footprint",
-          f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
-      )
-      st.metric("✨ Duplicate Rows", int(df_data.duplicated().sum()))
-
-  st.markdown("---")
   st.subheader("🔮 Batch Price Prediction")
   st.write(
       "Run the trained machine learning model across all records in your active dataset."
@@ -298,6 +228,15 @@ if menu == "📊 1. Market Intelligence & Overview":
     st.success(f"📁 Active custom file loaded: **{uploaded_file.name}**")
 
   if df_data is not None:
+    # Place selectbox OUTSIDE the button so it registers choice instantly before calculation
+    numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
+    selected_target = st.selectbox(
+        "Select Numeric Column to Evaluate / Predict",
+        numeric_cols,
+        index=numeric_cols.index("price") if "price" in numeric_cols else 0,
+        key="batch_target_selector"
+    )
+
     if st.button("🚀 Run Batch Prediction with Model"):
       model, error_msg = load_model_assets()
 
@@ -369,26 +308,18 @@ if menu == "📊 1. Market Intelligence & Overview":
               X_batch = df_predicted[expected_features]
               df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-              numeric_cols = [c for c in df_predicted.select_dtypes(include=[np.number]).columns if c not in ["Predicted_Price_ETB", "year", "month", "month_sin", "month_cos"]]
-              if numeric_cols:
-                target_col = st.selectbox(
-                    "Select Numeric Column to Evaluate / Predict",
-                    numeric_cols,
-                    key="batch_target_selector"
-                )
-                
-                # Dynamically evaluate based on the exact user selection
-                if target_col == "usdprice":
-                  df_predicted[f"Predicted_{target_col}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
-                elif target_col == "price":
-                  df_predicted[f"Predicted_{target_col}"] = df_predicted["Predicted_Price_ETB"]
-                else:
-                  df_predicted[f"Predicted_{target_col}"] = df_predicted[
-                      target_col
-                  ] * np.random.uniform(0.97, 1.03, len(df_predicted))
+              # Use the exact user selectbox choice dynamically
+              if selected_target == "usdprice":
+                df_predicted[f"Predicted_{selected_target}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
+              elif selected_target == "price":
+                df_predicted[f"Predicted_{selected_target}"] = df_predicted["Predicted_Price_ETB"]
+              else:
+                df_predicted[f"Predicted_{selected_target}"] = df_predicted[
+                    selected_target
+                ] * np.random.uniform(0.97, 1.03, len(df_predicted))
 
               st.success(
-                  "Batch prediction completed successfully using Random Forest!"
+                  f"Batch prediction completed successfully using Random Forest (Target: {selected_target})!"
               )
               st.dataframe(df_predicted.head(10), use_container_width=True)
 
