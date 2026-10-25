@@ -159,7 +159,7 @@ menu = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 uploaded_file = st.sidebar.file_uploader(
-    "📁 Override Dataset (Optional)", type=["xlsx", "csv"]
+    "📁 Override Dataset , type=["xlsx", "csv"]
 )
 
 # Load dataset automatically
@@ -169,7 +169,7 @@ df_data = load_dataset(uploaded_file)
 # PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
 # =============================================================================
 if menu == "1. Dashboard Overview & File Prediction":
-  st.header("📊 Dashboard Overview & Dataset Intelligence")
+  st.header("📊 Dataset Insights & Overview")
   st.write(
       "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
   )
