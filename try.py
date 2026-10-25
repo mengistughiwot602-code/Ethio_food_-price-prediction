@@ -335,7 +335,7 @@ elif menu == "2. Visualizations":
           y="price",
           color="admin1",
           title="Price Spread by Region",
-          labels={"admin1": "Region", "price": "Price (USD)"},
+          labels={"admin1": "Region", "price": "Price (ETB)"},
       )
       fig_box.update_layout(
           showlegend=False,
