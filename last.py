@@ -374,12 +374,13 @@ if menu == "📊 1. Market Intelligence & Overview":
                 target_col = st.selectbox(
                     "Select Numeric Column to Evaluate / Predict",
                     numeric_cols,
-                    index=numeric_cols.index("usdprice") if "usdprice" in numeric_cols else 0,
                 )
+                
+                # Dynamically apply evaluation based on exact selected dropdown value
                 if target_col == "usdprice":
-                  df_predicted["Predicted_usdprice"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
+                  df_predicted[f"Predicted_{target_col}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
                 elif target_col == "price":
-                  df_predicted["Predicted_price"] = df_predicted["Predicted_Price_ETB"]
+                  df_predicted[f"Predicted_{target_col}"] = df_predicted["Predicted_Price_ETB"]
                 else:
                   df_predicted[f"Predicted_{target_col}"] = df_predicted[
                       target_col
