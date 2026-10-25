@@ -580,13 +580,13 @@ elif menu == "3. Real-Time Model Prediction":
               f"✨ Predicted Local Market Price: **{prediction:,.2f} ETB**"
           )
           
-          # Clean, non-clutter expandable model metrics section (Option A)
+          # Updated Random Forest Evaluation Metrics (from project output)
           with st.expander("📊 View Model Training & Test Performance Metrics"):
               m1, m2, m3, m4 = st.columns(4)
-              m1.metric("Train R² Score", "0.942")
-              m2.metric("Test R² Score", "0.918")
-              m3.metric("Train MSE", "142.50")
-              m4.metric("Test MSE", "186.30")
+              m1.metric("Training R² Score", "0.9837")
+              m2.metric("Testing R² Score", "0.9729")
+              m3.metric("Testing RMSE", "306.9749")
+              m4.metric("Overfit Gap", "0.0107")
 
         except Exception as ex:
           st.error(f"Error processing prediction parameters: {ex}")
