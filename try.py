@@ -159,7 +159,7 @@ menu = st.sidebar.radio(
 
 st.sidebar.markdown("---")
 uploaded_file = st.sidebar.file_uploader(
-    "📁 Override Dataset , type=["xlsx", "csv"]
+    "📁 Override Dataset" , type=["xlsx", "csv"]
 )
 
 # Load dataset automatically
