@@ -85,7 +85,7 @@ def load_model_assets():
     return None, str(e)
 
 
-# Bulletproof Dataset Loader with Guaranteed Safe Fallbacks
+# Strict Dataset Loader with Validation Check for Custom Uploads
 @st.cache_data
 def load_dataset(uploaded_file=None):
   try:
@@ -94,6 +94,11 @@ def load_dataset(uploaded_file=None):
         df = pd.read_csv(uploaded_file, header=0)
       else:
         df = pd.read_excel(uploaded_file, header=0)
+
+      core_features = ["admin1", "commodity", "latitude", "longitude", "price"]
+      matched = sum(1 for f in core_features if f in df.columns)
+      if matched < 2:
+        return pd.DataFrame()  # Empty frame flags invalid structure
     elif os.path.exists("wfp_food_prices_et.xlsx"):
       df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
     else:
@@ -107,16 +112,13 @@ def load_dataset(uploaded_file=None):
       df = df.drop(0, errors="ignore").reset_index(drop=True)
     if "date" in df.columns:
       df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    if "price" in df.columns:
-      df["price"] = pd.to_numeric(df["price"], errors="coerce")
-    if "usdprice" in df.columns:
-      df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
-    if "latitude" in df.columns:
-      df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    if "longitude" in df.columns:
-      df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+    for col in ["price", "usdprice", "latitude", "longitude"]:
+      if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
   except Exception as e:
+    if uploaded_file is not None:
+      return pd.DataFrame()
     np.random.seed(42)
     n_rows = 500
     return pd.DataFrame({
@@ -188,15 +190,15 @@ if menu == "📊 1. Market Intelligence & Overview":
   with col1:
     st.metric(
         label="🧾 Total Recorded Transactions",
-        value=f"{len(df_data):,}" if df_data is not None else "36,746",
+        value=f"{len(df_data):,}" if df_data is not None and not df_data.empty else "0",
     )
   with col2:
     st.metric(
         label="🏛️ Covered Regions (Admin1)",
         value=(
             str(df_data["admin1"].nunique())
-            if df_data is not None and "admin1" in df_data.columns
-            else "11"
+            if df_data is not None and not df_data.empty and "admin1" in df_data.columns
+            else "0"
         ),
     )
   with col3:
@@ -204,85 +206,15 @@ if menu == "📊 1. Market Intelligence & Overview":
         label="🌾 Unique Commodities",
         value=(
             str(df_data["commodity"].nunique())
-            if df_data is not None and "commodity" in df_data.columns
-            else "93"
+            if df_data is not None and not df_data.empty and "commodity" in df_data.columns
+            else "0"
         ),
     )
   with col4:
     st.metric(
         label="🏷️ Total Columns",
-        value=len(df_data.columns) if df_data is not None else "0",
+        value=len(df_data.columns) if df_data is not None and not df_data.empty else "0",
     )
-
-  st.markdown("---")
-
-  # Horizontal Layout for Key Dataset Insights
-  if df_data is not None and not df_data.empty:
-    col_comm, col_reg, col_health = st.columns(3, gap="large")
-
-    with col_comm:
-      st.markdown("#### 🛒 Top Commodities")
-      st.caption("Ranked by frequency and average price.")
-      if {"commodity", "price"}.issubset(df_data.columns):
-        comm_summary = (
-            df_data.groupby("commodity")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
-        st.dataframe(comm_summary.head(8), use_container_width=True, height=280)
-      else:
-        st.info("Commodity or price column missing.")
-
-    with col_reg:
-      st.markdown("#### 🌍 Regional Volume")
-      st.caption("Distribution across administrative regions.")
-      if {"admin1", "price"}.issubset(df_data.columns):
-        reg_summary = (
-            df_data.groupby("admin1")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
-        st.dataframe(reg_summary, use_container_width=True, height=280)
-      else:
-        st.info("Admin1 or price column missing.")
-
-    with col_health:
-      st.markdown("#### 🔍 Data Scope & Quality")
-      st.caption("Record audit and memory stats.")
-
-      if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(
-          df_data["date"]
-      ):
-        min_date = df_data["date"].min()
-        max_date = df_data["date"].max()
-        if pd.notna(min_date) and pd.notna(max_date):
-          st.metric(
-              "📅 Temporal Span",
-              f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
-          )
-        else:
-          st.metric("📅 Temporal Span", "N/A")
-      else:
-        st.metric("📅 Temporal Span", "N/A")
-
-      st.metric(
-          "🧹 Total Missing Cells", int(df_data.isna().sum().sum())
-      )
-      st.metric(
-          "💾 Memory Footprint",
-          f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
-      )
-      st.metric("✨ Duplicate Rows", int(df_data.duplicated().sum()))
 
   st.markdown("---")
   st.subheader("🔮 Batch Price Prediction")
@@ -297,107 +229,98 @@ if menu == "📊 1. Market Intelligence & Overview":
   else:
     st.success(f"📁 Active custom file loaded: **{uploaded_file.name}**")
 
-  if df_data is not None:
-    core_features = ["admin1", "commodity", "latitude", "longitude", "price"]
-    matched_core = sum(1 for f in core_features if f in df_data.columns)
+  if df_data is None or df_data.empty:
+    st.error(
+        "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's features are not similar to the model's training data. Please ensure your file contains the correct regional, commodity, or spatial columns."
+    )
+  else:
+    numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
+    selected_target = st.selectbox(
+        "Select Numeric Column to Evaluate / Predict",
+        numeric_cols,
+        index=numeric_cols.index("price") if "price" in numeric_cols else 0,
+        key="batch_target_selector"
+    )
 
-    if uploaded_file is not None and matched_core < 2:
-      st.error(
-          "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's features are"
-          " not similar to the model's training data. Please ensure your file"
-          " contains the correct regional, commodity, or spatial columns."
-      )
-    else:
-      numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
-      selected_target = st.selectbox(
-          "Select Numeric Column to Evaluate / Predict",
-          numeric_cols,
-          index=numeric_cols.index("price") if "price" in numeric_cols else 0,
-          key="batch_target_selector"
-      )
+    if st.button("🚀 Run Batch Prediction with Model"):
+      model, error_msg = load_model_assets()
 
-      if st.button("🚀 Run Batch Prediction with Model"):
-        model, error_msg = load_model_assets()
+      if error_msg:
+        st.error(f"Could not load model assets: {error_msg}")
+      else:
+        try:
+          df_predicted = df_data.copy()
 
-        if error_msg:
-          st.error(f"Could not load model assets: {error_msg}")
-        else:
-          try:
-            df_predicted = df_data.copy()
+          # Extract temporal features if date is present
+          if "date" in df_predicted.columns and (
+              "year" not in df_predicted.columns
+              or "month" not in df_predicted.columns
+          ):
+            df_predicted["date"] = pd.to_datetime(
+                df_predicted["date"], errors="coerce"
+            )
+            df_predicted["year"] = df_predicted["date"].dt.year
+            df_predicted["month"] = df_predicted["date"].dt.month
+            df_predicted["month_sin"] = np.sin(
+                2 * np.pi * df_predicted["month"] / 12
+            )
+            df_predicted["month_cos"] = np.cos(
+                2 * np.pi * df_predicted["month"] / 12
+            )
 
-            if df_predicted.empty or len(df_predicted) == 0:
-              st.error("⚠️ The uploaded dataset is empty.")
-            else:
-              # Extract temporal features if date is present
-              if "date" in df_predicted.columns and (
-                  "year" not in df_predicted.columns
-                  or "month" not in df_predicted.columns
-              ):
-                df_predicted["date"] = pd.to_datetime(
-                    df_predicted["date"], errors="coerce"
-                )
-                df_predicted["year"] = df_predicted["date"].dt.year
-                df_predicted["month"] = df_predicted["date"].dt.month
-                df_predicted["month_sin"] = np.sin(
-                    2 * np.pi * df_predicted["month"] / 12
-                )
-                df_predicted["month_cos"] = np.cos(
-                    2 * np.pi * df_predicted["month"] / 12
-                )
+          # Automatically convert text columns to numeric codes
+          for col in df_predicted.select_dtypes(include=["object"]).columns:
+            if col != "date":
+              df_predicted[col] = pd.factorize(df_predicted[col])[0]
 
-              # Automatically convert text columns to numeric codes
-              for col in df_predicted.select_dtypes(include=["object"]).columns:
-                if col != "date":
-                  df_predicted[col] = pd.factorize(df_predicted[col])[0]
+          expected_features = [
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "category",
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
+          ]
 
-              expected_features = [
-                  "admin1",
-                  "admin2",
-                  "market",
-                  "latitude",
-                  "longitude",
-                  "category",
-                  "commodity",
-                  "unit",
-                  "priceflag",
-                  "pricetype",
-                  "year",
-                  "month",
-                  "month_sin",
-                  "month_cos",
-              ]
+          for col in expected_features:
+            if col not in df_predicted.columns:
+              df_predicted[col] = 0
 
-              for col in expected_features:
-                if col not in df_predicted.columns:
-                  df_predicted[col] = 0
+          X_batch = df_predicted[expected_features]
+          df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-              X_batch = df_predicted[expected_features]
-              df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
+          # Dynamically evaluate based on the exact user selection
+          if selected_target == "usdprice":
+            df_predicted[f"Predicted_{selected_target}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
+          elif selected_target == "price":
+            df_predicted[f"Predicted_{selected_target}"] = df_predicted["Predicted_Price_ETB"]
+          else:
+            df_predicted[f"Predicted_{selected_target}"] = df_predicted[
+                selected_target
+            ] * np.random.uniform(0.97, 1.03, len(df_predicted))
 
-              # Dynamically evaluate based on the exact user selection
-              if selected_target == "usdprice":
-                df_predicted[f"Predicted_{selected_target}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
-              elif selected_target == "price":
-                df_predicted[f"Predicted_{selected_target}"] = df_predicted["Predicted_Price_ETB"]
-              else:
-                df_predicted[f"Predicted_{selected_target}"] = df_predicted[
-                    selected_target
-                ] * np.random.uniform(0.97, 1.03, len(df_predicted))
+          st.success(
+              f"Batch prediction completed successfully using Random Forest (Target: {selected_target})!"
+          )
+          st.dataframe(df_predicted.head(10), use_container_width=True)
 
-              st.success(
-                  f"Batch prediction completed successfully using Random Forest (Target: {selected_target})!"
-              )
-              st.dataframe(df_predicted.head(10), use_container_width=True)
-
-              csv_data = df_predicted.to_csv(index=False).encode("utf-8")
-              st.download_button(
-                  label="📥 Download Predictions CSV",
-                  data=csv_data,
-                  file_name="predicted_dataset_results.csv",
-                  mime="text/csv",
-              )
-          except Exception as ex:
-            st.error(f"Error during batch prediction execution: {ex}")
+          csv_data = df_predicted.to_csv(index=False).encode("utf-8")
+          st.download_button(
+              label="📥 Download Predictions CSV",
+              data=csv_data,
+              file_name="predicted_dataset_results.csv",
+              mime="text/csv",
+          )
+        except Exception as ex:
+          st.error(f"Error during batch prediction execution: {ex}")
 
 # =============================================================================
 # PAGE 2: VISUALIZATIONS & ANALYTICS
