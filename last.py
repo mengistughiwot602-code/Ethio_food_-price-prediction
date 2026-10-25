@@ -215,6 +215,76 @@ if menu == "📊 1. Market Intelligence & Overview":
     )
 
   st.markdown("---")
+
+  # Horizontal Layout for Key Dataset Insights
+  if df_data is not None and not df_data.empty:
+    col_comm, col_reg, col_health = st.columns(3, gap="large")
+
+    with col_comm:
+      st.markdown("#### 🛒 Top Commodities")
+      st.caption("Ranked by frequency and average price.")
+      if {"commodity", "price"}.issubset(df_data.columns):
+        comm_summary = (
+            df_data.groupby("commodity")
+            .agg(
+                Transactions=("price", "count"),
+                Avg_Price=("price", "mean"),
+            )
+            .reset_index()
+            .sort_values(by="Transactions", ascending=False)
+        )
+        comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
+        st.dataframe(comm_summary.head(8), use_container_width=True, height=280)
+      else:
+        st.info("Commodity or price column missing.")
+
+    with col_reg:
+      st.markdown("#### 🌍 Regional Volume")
+      st.caption("Distribution across administrative regions.")
+      if {"admin1", "price"}.issubset(df_data.columns):
+        reg_summary = (
+            df_data.groupby("admin1")
+            .agg(
+                Transactions=("price", "count"),
+                Avg_Price=("price", "mean"),
+            )
+            .reset_index()
+            .sort_values(by="Transactions", ascending=False)
+        )
+        reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
+        st.dataframe(reg_summary, use_container_width=True, height=280)
+      else:
+        st.info("Admin1 or price column missing.")
+
+    with col_health:
+      st.markdown("#### 🔍 Data Scope & Quality")
+      st.caption("Record audit and memory stats.")
+
+      if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(
+          df_data["date"]
+      ):
+        min_date = df_data["date"].min()
+        max_date = df_data["date"].max()
+        if pd.notna(min_date) and pd.notna(max_date):
+          st.metric(
+              "📅 Temporal Span",
+              f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
+          )
+        else:
+          st.metric("📅 Temporal Span", "N/A")
+      else:
+        st.metric("📅 Temporal Span", "N/A")
+
+      st.metric(
+          "🧹 Total Missing Cells", int(df_data.isna().sum().sum())
+      )
+      st.metric(
+          "💾 Memory Footprint",
+          f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
+      )
+      st.metric("✨ Duplicate Rows", int(df_data.duplicated().sum()))
+
+  st.markdown("---")
   st.subheader("🔮 Batch Price Prediction")
   st.write(
       "Run the trained machine learning model across all records in your active dataset."
@@ -228,39 +298,35 @@ if menu == "📊 1. Market Intelligence & Overview":
     st.success(f"📁 Active custom file loaded: **{uploaded_file.name}**")
 
   if df_data is not None:
-    # Place selectbox OUTSIDE the button so it registers choice instantly before calculation
-    numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
-    selected_target = st.selectbox(
-        "Select Numeric Column to Evaluate / Predict",
-        numeric_cols,
-        index=numeric_cols.index("price") if "price" in numeric_cols else 0,
-        key="batch_target_selector"
-    )
+    core_features = ["admin1", "commodity", "latitude", "longitude", "price"]
+    matched_core = sum(1 for f in core_features if f in df_data.columns)
 
-    if st.button("🚀 Run Batch Prediction with Model"):
-      model, error_msg = load_model_assets()
+    if uploaded_file is not None and matched_core < 2:
+      st.error(
+          "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's features are"
+          " not similar to the model's training data. Please ensure your file"
+          " contains the correct regional, commodity, or spatial columns."
+      )
+    else:
+      numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
+      selected_target = st.selectbox(
+          "Select Numeric Column to Evaluate / Predict",
+          numeric_cols,
+          index=numeric_cols.index("price") if "price" in numeric_cols else 0,
+          key="batch_target_selector"
+      )
 
-      if error_msg:
-        st.error(f"Could not load model assets: {error_msg}")
-      else:
-        try:
-          df_predicted = df_data.copy()
+      if st.button("🚀 Run Batch Prediction with Model"):
+        model, error_msg = load_model_assets()
 
-          if df_predicted.empty or len(df_predicted) == 0:
-            st.error("⚠️ The uploaded dataset is empty.")
-          else:
-            core_features = ["admin1", "commodity", "latitude", "longitude"]
-            matched_count = sum(
-                1 for f in core_features if f in df_predicted.columns
-            )
+        if error_msg:
+          st.error(f"Could not load model assets: {error_msg}")
+        else:
+          try:
+            df_predicted = df_data.copy()
 
-            if matched_count < 2:
-              st.error(
-                  "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's"
-                  " features are not similar to the model's training data."
-                  " Please ensure your file contains the correct regional,"
-                  " commodity, or spatial columns."
-              )
+            if df_predicted.empty or len(df_predicted) == 0:
+              st.error("⚠️ The uploaded dataset is empty.")
             else:
               # Extract temporal features if date is present
               if "date" in df_predicted.columns and (
@@ -308,7 +374,7 @@ if menu == "📊 1. Market Intelligence & Overview":
               X_batch = df_predicted[expected_features]
               df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-              # Use the exact user selectbox choice dynamically
+              # Dynamically evaluate based on the exact user selection
               if selected_target == "usdprice":
                 df_predicted[f"Predicted_{selected_target}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
               elif selected_target == "price":
@@ -330,8 +396,8 @@ if menu == "📊 1. Market Intelligence & Overview":
                   file_name="predicted_dataset_results.csv",
                   mime="text/csv",
               )
-        except Exception as ex:
-          st.error(f"Error during batch prediction execution: {ex}")
+          except Exception as ex:
+            st.error(f"Error during batch prediction execution: {ex}")
 
 # =============================================================================
 # PAGE 2: VISUALIZATIONS & ANALYTICS
