@@ -170,7 +170,7 @@ df_data = load_dataset(uploaded_file)
 # PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
 # =============================================================================
 if menu == "1. Dashboard Overview & File Prediction":
-  st.header("📊 Dataset Insights & Overview")
+  st.header("📊 Key Dataset Insights & Aggregaions Overview")
   st.write(
       "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
   )
@@ -202,7 +202,6 @@ if menu == "1. Dashboard Overview & File Prediction":
   st.markdown("---")
   
   # Horizontal Layout for Key Dataset Insights
-  st.subheader("📌 Key Dataset Insights & Aggregations")
   if df_data is not None and not df_data.empty:
     col_comm, col_reg, col_health = st.columns(3, gap="large")
 
