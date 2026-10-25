@@ -338,30 +338,34 @@ if menu == "📊 1. Market Intelligence & Overview":
                 2 * np.pi * df_predicted["month"] / 12
             )
 
-          admin1_mapping = {"Addis Ababa": 7, "Oromia": 8, "Amhara": 2, "Tigray": 10, "Somali": 5, "SNNPR / Sidama": 6, "Afar": 1, "Dire Dawa": 11, "B. Gumuz": 3, "Harari": 6, "Gambela": 5}
-          admin2_mapping = {"Addis Ababa Zone": 13, "Adama Special Zone": 14, "Bahir Dar Special Zone": 15, "Hawassa Special Zone": 16, "Mekelle Special Zone": 17, "Dire Dawa Zone": 18, "East Shewa Zone": 19, "West Gojjam Zone": 20, "North Shewa Zone": 21, "South Wollo Zone": 22}
-          category_mapping = {"cereals and tubers": 0, "pulses and nuts": 1, "vegetables and fruits": 2, "meat, fish and eggs": 3}
-          commodity_mapping = {"Maize (white)": 83, "Sorghum (white)": 28, "Teff": 12, "Wheat": 45, "Barley": 19}
-          unit_mapping = {"100 KG": 1, "KG": 0, "Quintal": 1, "Pound": 2, "Litre": 3}
-          priceflag_mapping = {"actual": 0, "estimated": 1, "Actual / Verified": 0, "Estimated / Imputed": 1}
-          pricetype_mapping = {"Wholesale": 1, "Retail": 0}
+          expected_features = [
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "category",
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
+          ]
 
-          X_batch = pd.DataFrame()
-          X_batch["admin1"] = df_predicted["admin1"].map(admin1_mapping).fillna(0)
-          X_batch["admin2"] = df_predicted["admin2"].map(admin2_mapping).fillna(0)
-          X_batch["market"] = pd.factorize(df_predicted["market"])[0]
-          X_batch["latitude"] = pd.to_numeric(df_predicted["latitude"], errors="coerce").fillna(9.0)
-          X_batch["longitude"] = pd.to_numeric(df_predicted["longitude"], errors="coerce").fillna(38.7)
-          X_batch["category"] = df_predicted["category"].map(category_mapping).fillna(0)
-          X_batch["commodity"] = df_predicted["commodity"].map(commodity_mapping).fillna(0)
-          X_batch["unit"] = df_predicted["unit"].map(unit_mapping).fillna(0)
-          X_batch["priceflag"] = df_predicted["priceflag"].map(priceflag_mapping).fillna(0)
-          X_batch["pricetype"] = df_predicted["pricetype"].map(pricetype_mapping).fillna(0)
-          X_batch["year"] = df_predicted["year"]
-          X_batch["month"] = df_predicted["month"]
-          X_batch["month_sin"] = df_predicted["month_sin"]
-          X_batch["month_cos"] = df_predicted["month_cos"]
+          # Create X_batch copy for model inference with factorization
+          X_batch = df_predicted.copy()
+          for col in X_batch.select_dtypes(include=["object"]).columns:
+            if col != "date":
+              X_batch[col] = pd.factorize(X_batch[col])[0]
 
+          for col in expected_features:
+            if col not in X_batch.columns:
+              X_batch[col] = 0
+
+          X_batch = X_batch[expected_features]
           base_preds = model.predict(X_batch)
 
           # Predict ONLY the user's chosen target column dynamically
