@@ -355,14 +355,20 @@ if menu == "📊 1. Market Intelligence & Overview":
               "month_cos",
           ]
 
-          # Build X_batch directly matching the first working image setup
+          # Build X_batch securely with proper encoding for model input
           X_batch = pd.DataFrame()
           for col in expected_features:
             if col in df_predicted.columns:
-              X_batch[col] = df_predicted[col]
+              if df_predicted[col].dtype == "object":
+                X_batch[col] = pd.factorize(df_predicted[col])[0]
+              else:
+                X_batch[col] = pd.to_numeric(
+                    df_predicted[col], errors="coerce"
+                ).fillna(0)
             else:
               X_batch[col] = 0
 
+          X_batch = X_batch[expected_features]
           base_preds = model.predict(X_batch)
 
           # Predict ONLY the user's chosen target column dynamically
