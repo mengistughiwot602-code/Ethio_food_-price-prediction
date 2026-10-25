@@ -170,7 +170,7 @@ df_data = load_dataset(uploaded_file)
 # PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
 # =============================================================================
 if menu == "1. Dashboard Overview & File Prediction":
-  st.header("📊 📌 Key Dataset Insights & Aggregaions Overview")
+  st.header("📊 Key Dataset Insights & Aggregaions Overview")
   st.write(
       "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
   )
@@ -581,7 +581,7 @@ elif menu == "3. Real-Time Model Prediction":
           )
           
           # Updated Random Forest Evaluation Metrics (from project output)
-          with st.expander("📊 View Model Training & Test Performance Metrics"):
+          with st.expander("📌 View Model Training & Test Performance Metrics"):
               m1, m2, m3, m4 = st.columns(4)
               m1.metric("Training R² Score", "0.9837")
               m2.metric("Testing R² Score", "0.9729")
