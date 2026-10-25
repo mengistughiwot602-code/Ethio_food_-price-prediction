@@ -296,8 +296,10 @@ if menu == "1. Dashboard Overview & File Prediction":
 # =============================================================================
 elif menu == "2. Visualizations":
   st.header("📈 Market Insights & Historical Data Visualizations")
-st.markdown("---")
-   with map_col:
+  st.markdown("---")
+  if df_data is not None and not df_data.empty:
+    map_col, box_col = st.columns(2, gap="large")
+    with map_col:
       st.subheader("🗺️ Geospatial Market Price Map")
       st.write("Interactive map showing market monitoring locations across Ethiopia.")
       map_df = df_data.dropna(subset=["latitude", "longitude", "price"])
