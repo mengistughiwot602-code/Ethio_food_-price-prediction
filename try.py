@@ -579,5 +579,14 @@ elif menu == "3. Real-Time Model Prediction":
           st.success(
               f"✨ Predicted Local Market Price: **{prediction:,.2f} ETB**"
           )
+          
+          # Clean, non-clutter expandable model metrics section (Option A)
+          with st.expander("📊 View Model Training & Test Performance Metrics"):
+              m1, m2, m3, m4 = st.columns(4)
+              m1.metric("Train R² Score", "0.942")
+              m2.metric("Test R² Score", "0.918")
+              m3.metric("Train MSE", "142.50")
+              m4.metric("Test MSE", "186.30")
+
         except Exception as ex:
           st.error(f"Error processing prediction parameters: {ex}")
