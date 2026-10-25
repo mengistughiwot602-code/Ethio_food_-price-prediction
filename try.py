@@ -248,11 +248,11 @@ if menu == "1. Dashboard Overview & File Prediction":
       if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(df_data["date"]):
         min_date = df_data["date"].min()
         max_date = df_data["date"].max()
-        st.metric("Temporal Span", f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}")
+        st.metric("🗓️ Temporal Span", f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}")
       
-      st.metric("Total Missing Cells", int(df_data.isna().sum().sum()))
-      st.metric("Memory Footprint", f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB")
-      st.metric("Duplicate Rows", int(df_data.duplicated().sum()))
+      st.metric("⚠️ Total Missing Cells", int(df_data.isna().sum().sum()))
+      st.metric("💻 Memory Footprint", f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB")
+      st.metric("👯 Duplicate Rows", int(df_data.duplicated().sum()))
 
   st.markdown("---")
   st.subheader("🔮 Batch Target Prediction on Uploaded File")
