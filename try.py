@@ -188,7 +188,7 @@ if menu == "1. Dashboard Overview & File Prediction":
     )
   with col3:
     st.metric(
-        label="Unique Commodities",
+        label="🌾Unique Commodities",
         value=(
             str(df_data["commodity"].nunique()) if df_data is not None else "93"
         ),
