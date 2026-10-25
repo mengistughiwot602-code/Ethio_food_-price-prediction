@@ -374,9 +374,10 @@ if menu == "📊 1. Market Intelligence & Overview":
                 target_col = st.selectbox(
                     "Select Numeric Column to Evaluate / Predict",
                     numeric_cols,
+                    key="batch_target_selector"
                 )
                 
-                # Dynamically apply evaluation based on exact selected dropdown value
+                # Dynamically evaluate based on the exact user selection
                 if target_col == "usdprice":
                   df_predicted[f"Predicted_{target_col}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
                 elif target_col == "price":
