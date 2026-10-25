@@ -307,66 +307,80 @@ if menu == "📊 1. Market Intelligence & Overview":
         try:
           df_predicted = df_data.copy()
 
-          # Extract temporal features if date is present
-          if "date" in df_predicted.columns and (
-              "year" not in df_predicted.columns
-              or "month" not in df_predicted.columns
-          ):
-            df_predicted["date"] = pd.to_datetime(
-                df_predicted["date"], errors="coerce"
-            )
-            df_predicted["year"] = df_predicted["date"].dt.year
-            df_predicted["month"] = df_predicted["date"].dt.month
-            df_predicted["month_sin"] = np.sin(
-                2 * np.pi * df_predicted["month"] / 12
-            )
-            df_predicted["month_cos"] = np.cos(
-                2 * np.pi * df_predicted["month"] / 12
+          if df_predicted.empty or len(df_predicted) == 0:
+            st.error("⚠️ The uploaded dataset is empty.")
+          else:
+            core_features = ["admin1", "commodity", "latitude", "longitude"]
+            matched_count = sum(
+                1 for f in core_features if f in df_predicted.columns
             )
 
-          # Automatically convert any text columns to numeric factor codes
-          for col in df_predicted.select_dtypes(include=["object"]).columns:
-            if col != "date":
-              df_predicted[col] = pd.factorize(df_predicted[col])[0]
+            if matched_count < 2:
+              st.error(
+                  "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's"
+                  " features are not similar to the model's training data."
+                  " Please ensure your file contains the correct regional,"
+                  " commodity, or spatial columns."
+              )
+            else:
+              # Extract temporal features if date is present
+              if "date" in df_predicted.columns and (
+                  "year" not in df_predicted.columns
+                  or "month" not in df_predicted.columns
+              ):
+                df_predicted["date"] = pd.to_datetime(
+                    df_predicted["date"], errors="coerce"
+                )
+                df_predicted["year"] = df_predicted["date"].dt.year
+                df_predicted["month"] = df_predicted["date"].dt.month
+                df_predicted["month_sin"] = np.sin(
+                    2 * np.pi * df_predicted["month"] / 12
+                )
+                df_predicted["month_cos"] = np.cos(
+                    2 * np.pi * df_predicted["month"] / 12
+                )
 
-          expected_features = [
-              "admin1",
-              "admin2",
-              "market",
-              "latitude",
-              "longitude",
-              "category",
-              "commodity",
-              "unit",
-              "priceflag",
-              "pricetype",
-              "year",
-              "month",
-              "month_sin",
-              "month_cos",
-          ]
+              # Automatically convert text columns to numeric codes
+              for col in df_predicted.select_dtypes(include=["object"]).columns:
+                if col != "date":
+                  df_predicted[col] = pd.factorize(df_predicted[col])[0]
 
-          missing_features = [
-              col for col in expected_features if col not in df_predicted.columns
-          ]
+              expected_features = [
+                  "admin1",
+                  "admin2",
+                  "market",
+                  "latitude",
+                  "longitude",
+                  "category",
+                  "commodity",
+                  "unit",
+                  "priceflag",
+                  "pricetype",
+                  "year",
+                  "month",
+                  "month_sin",
+                  "month_cos",
+              ]
 
-          if missing_features:
-            for col in missing_features:
-              df_predicted[col] = 0
+              for col in expected_features:
+                if col not in df_predicted.columns:
+                  df_predicted[col] = 0
 
-          X_batch = df_predicted[expected_features]
-          df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
+              X_batch = df_predicted[expected_features]
+              df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-          st.success("Batch prediction completed successfully using Random Forest!")
-          st.dataframe(df_predicted.head(10), use_container_width=True)
+              st.success(
+                  "Batch prediction completed successfully using Random Forest!"
+              )
+              st.dataframe(df_predicted.head(10), use_container_width=True)
 
-          csv_data = df_predicted.to_csv(index=False).encode("utf-8")
-          st.download_button(
-              label="📥 Download Predictions CSV",
-              data=csv_data,
-              file_name="predicted_dataset_results.csv",
-              mime="text/csv",
-          )
+              csv_data = df_predicted.to_csv(index=False).encode("utf-8")
+              st.download_button(
+                  label="📥 Download Predictions CSV",
+                  data=csv_data,
+                  file_name="predicted_dataset_results.csv",
+                  mime="text/csv",
+              )
         except Exception as ex:
           st.error(f"Error during batch prediction execution: {ex}")
 
