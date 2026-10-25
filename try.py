@@ -195,7 +195,7 @@ if menu == "1. Dashboard Overview & File Prediction":
     )
   with col4:
     st.metric(
-        label="Total Columns",
+        label="🏷️ Total Columns",
         value=len(df_data.columns) if df_data is not None else "0",
     )
 
