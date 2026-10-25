@@ -296,29 +296,7 @@ if menu == "1. Dashboard Overview & File Prediction":
 # =============================================================================
 elif menu == "2. Visualizations":
   st.header("📈 Market Insights & Historical Data Visualizations")
-
-  col1, col2, col3 = st.columns(3)
-  with col1:
-    st.metric(
-        label="Total Recorded Transactions",
-        value=f"{len(df_data):,}" if df_data is not None else "36,746",
-    )
-  with col2:
-    st.metric(
-        label="Covered Administrative Regions (Admin1)",
-        value=(
-            str(df_data["admin1"].nunique()) if df_data is not None else "11"
-        ),
-    )
-  with col3:
-    st.metric(
-        label="Unique Commodities Modeled",
-        value=(
-            str(df_data["commodity"].nunique()) if df_data is not None else "93"
-        ),
-    )
-
-  st.markdown("---")
+st.markdown("---")
 
   if df_data is not None and not df_data.empty:
     map_col, box_col = st.columns(2, gap="large")
