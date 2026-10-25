@@ -369,15 +369,18 @@ if menu == "📊 1. Market Intelligence & Overview":
               X_batch = df_predicted[expected_features]
               df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
 
-              numeric_cols = [c for c in df_predicted.select_dtypes(include=[np.number]).columns if c != "Predicted_Price_ETB"]
+              numeric_cols = [c for c in df_predicted.select_dtypes(include=[np.number]).columns if c not in ["Predicted_Price_ETB", "year", "month", "month_sin", "month_cos"]]
               if numeric_cols:
                 target_col = st.selectbox(
                     "Select Numeric Column to Evaluate / Predict",
                     numeric_cols,
+                    index=numeric_cols.index("usdprice") if "usdprice" in numeric_cols else 0,
                 )
                 if target_col == "usdprice":
-                  df_predicted[f"Predicted_{target_col}"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
-                elif target_col != "price":
+                  df_predicted["Predicted_usdprice"] = (df_predicted["Predicted_Price_ETB"] / 57.0).round(2)
+                elif target_col == "price":
+                  df_predicted["Predicted_price"] = df_predicted["Predicted_Price_ETB"]
+                else:
                   df_predicted[f"Predicted_{target_col}"] = df_predicted[
                       target_col
                   ] * np.random.uniform(0.97, 1.03, len(df_predicted))
