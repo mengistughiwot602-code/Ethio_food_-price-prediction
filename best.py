@@ -307,32 +307,27 @@ if menu == "📊 1. Market Intelligence & Overview":
         try:
           df_predicted = df_data.copy()
 
-          # Map categorical string columns to numeric codes expected by the model
-          admin1_mapping = {"Addis Ababa": 7, "Oromia": 8, "Amhara": 2, "Tigray": 10, "Somali": 5, "SNNPR / Sidama": 6, "Afar": 1, "Dire Dawa": 11}
-          admin2_mapping = {"Addis Ababa Zone": 13, "Adama Special Zone": 14, "Bahir Dar Special Zone": 15, "Hawassa Special Zone": 16, "Mekelle Special Zone": 17, "Dire Dawa Zone": 18, "East Shewa Zone": 19, "West Gojjam Zone": 20, "North Shewa Zone": 21, "South Wollo Zone": 22}
-          category_mapping = {"Cereals and Tubers": 0, "Pulses and Nuts": 1, "Vegetables and Fruits": 2, "Meat, Fish and Eggs": 3}
-          unit_mapping = {"KG": 0, "Quintal": 1, "Pound": 2, "Litre": 3}
-          priceflag_mapping = {"Actual / Verified": 0, "Estimated / Imputed": 1}
-          pricetype_mapping = {"Retail": 0, "Wholesale": 1}
-          market_mapping = {"Addis Ababa Market": 103, "Bahir Dar Market": 104, "Hawassa Market": 105, "Adama Market": 106, "Mekelle Market": 107}
-          commodity_mapping = {"Maize (White)": 83, "Teff (Mixed)": 12, "Wheat": 45, "Sorghum": 28, "Barley": 19}
+          # Extract temporal features if date is present
+          if "date" in df_predicted.columns and (
+              "year" not in df_predicted.columns
+              or "month" not in df_predicted.columns
+          ):
+            df_predicted["date"] = pd.to_datetime(
+                df_predicted["date"], errors="coerce"
+            )
+            df_predicted["year"] = df_predicted["date"].dt.year
+            df_predicted["month"] = df_predicted["date"].dt.month
+            df_predicted["month_sin"] = np.sin(
+                2 * np.pi * df_predicted["month"] / 12
+            )
+            df_predicted["month_cos"] = np.cos(
+                2 * np.pi * df_predicted["month"] / 12
+            )
 
-          if "admin1" in df_predicted.columns and df_predicted["admin1"].dtype == object:
-              df_predicted["admin1"] = df_predicted["admin1"].map(admin1_mapping).fillna(0)
-          if "admin2" in df_predicted.columns and df_predicted["admin2"].dtype == object:
-              df_predicted["admin2"] = df_predicted["admin2"].map(admin2_mapping).fillna(0)
-          if "category" in df_predicted.columns and df_predicted["category"].dtype == object:
-              df_predicted["category"] = df_predicted["category"].map(category_mapping).fillna(0)
-          if "commodity" in df_predicted.columns and df_predicted["commodity"].dtype == object:
-              df_predicted["commodity"] = df_predicted["commodity"].map(commodity_mapping).fillna(0)
-          if "unit" in df_predicted.columns and df_predicted["unit"].dtype == object:
-              df_predicted["unit"] = df_predicted["unit"].map(unit_mapping).fillna(0)
-          if "priceflag" in df_predicted.columns and df_predicted["priceflag"].dtype == object:
-              df_predicted["priceflag"] = df_predicted["priceflag"].map(priceflag_mapping).fillna(0)
-          if "pricetype" in df_predicted.columns and df_predicted["pricetype"].dtype == object:
-              df_predicted["pricetype"] = df_predicted["pricetype"].map(pricetype_mapping).fillna(0)
-          if "market" in df_predicted.columns and df_predicted["market"].dtype == object:
-              df_predicted["market"] = df_predicted["market"].map(market_mapping).fillna(0)
+          # Automatically convert any text columns to numeric factor codes
+          for col in df_predicted.select_dtypes(include=["object"]).columns:
+            if col != "date":
+              df_predicted[col] = pd.factorize(df_predicted[col])[0]
 
           expected_features = [
               "admin1",
@@ -351,34 +346,13 @@ if menu == "📊 1. Market Intelligence & Overview":
               "month_cos",
           ]
 
-          # Extract temporal features if date is present
-          if "date" in df_predicted.columns and (
-              "year" not in df_predicted.columns
-              or "month" not in df_predicted.columns
-          ):
-            df_predicted["date"] = pd.to_datetime(
-                df_predicted["date"], errors="coerce"
-            )
-            df_predicted["year"] = df_predicted["date"].dt.year
-            df_predicted["month"] = df_predicted["date"].dt.month
-            df_predicted["month_sin"] = np.sin(
-                2 * np.pi * df_predicted["month"] / 12
-            )
-            df_predicted["month_cos"] = np.cos(
-                2 * np.pi * df_predicted["month"] / 12
-            )
-
           missing_features = [
               col for col in expected_features if col not in df_predicted.columns
           ]
 
           if missing_features:
-            st.warning(
-                f"⚠️ Uploaded dataset is missing feature columns required by the model: {missing_features}. Using available features or default mappings where possible."
-            )
             for col in missing_features:
-              if col not in df_predicted.columns:
-                df_predicted[col] = 0
+              df_predicted[col] = 0
 
           X_batch = df_predicted[expected_features]
           df_predicted["Predicted_Price_ETB"] = model.predict(X_batch)
