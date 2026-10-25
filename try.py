@@ -152,7 +152,7 @@ menu = st.sidebar.radio(
     "Go to",
     [
         "1. Dashboard Overview & File Prediction",
-        "2. Visualizations",
+        "2. Market Visualizations",
         "3. Real-Time Model Prediction",
     ],
     label_visibility="collapsed",
