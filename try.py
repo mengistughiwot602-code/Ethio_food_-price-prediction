@@ -104,6 +104,7 @@ def load_dataset(uploaded_file=None):
       df = df.drop(0, errors="ignore").reset_index(drop=True)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     return df
