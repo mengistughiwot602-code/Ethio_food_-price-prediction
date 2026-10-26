@@ -311,11 +311,11 @@ if menu == "1. Dashboard Overview & File Prediction":
                 "year", "month", "month_sin", "month_cos"
             ]
 
-            # Build inference X_batch cleanly by factorizing each feature column independently
+            # Build inference X_batch cleanly using dynamic factorization (matching the working format)
             X_batch = pd.DataFrame()
             for col in expected_features:
               if col in df_predicted.columns:
-                if df_predicted[col].dtype == "object" or df_predicted[col].dtype.name == "category":
+                if df_predicted[col].dtype == "object":
                   X_batch[col] = pd.factorize(df_predicted[col].astype(str))[0]
                 else:
                   X_batch[col] = pd.to_numeric(df_predicted[col], errors="coerce").fillna(0)
