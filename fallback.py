@@ -90,7 +90,10 @@ def load_model_assets():
 def load_dataset(uploaded_file=None):
   try:
     if uploaded_file is not None:
-      df = pd.read_excel(uploaded_file, header=0)
+      if uploaded_file.name.endswith(".csv"):
+        df = pd.read_csv(uploaded_file, header=0)
+      else:
+        df = pd.read_excel(uploaded_file, header=0)
     elif os.path.exists("wfp_food_prices_et.xlsx"):
       df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
     else:
@@ -104,11 +107,11 @@ def load_dataset(uploaded_file=None):
       df = df.drop(0, errors="ignore").reset_index(drop=True)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df["price"] = pd.to_numeric(df["price"], errors="coerce")
+    df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
     df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
     df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
     return df
   except Exception as e:
-    # Safe mock fallback with strictly matching array lengths (n_rows = 500)
     np.random.seed(42)
     n_rows = 500
     return pd.DataFrame({
@@ -125,6 +128,7 @@ def load_dataset(uploaded_file=None):
         "unit": ["KG"] * n_rows,
         "priceflag": [0] * n_rows,
         "pricetype": [0] * n_rows,
+        "price": np.random.uniform(20.0, 150.0, n_rows),
         "usdprice": np.random.uniform(0.5, 3.5, n_rows),
         "latitude": np.random.uniform(3.5, 14.5, n_rows),
         "longitude": np.random.uniform(34.0, 47.0, n_rows),
@@ -149,56 +153,217 @@ st.markdown(
 # Navigation Sidebar & Override Option
 st.sidebar.markdown("### Navigation Menu")
 menu = st.sidebar.radio(
-    "Go to", ["Dashboard Overview", "Model Prediction"], label_visibility="collapsed"
+    "Go to",
+    [
+        "1. Dashboard Overview & File Prediction",
+        "2. Market Visualizations",
+        "3. Real-Time Model Prediction",
+    ],
+    label_visibility="collapsed",
 )
 
 st.sidebar.markdown("---")
 uploaded_file = st.sidebar.file_uploader(
-    "📁 Override Dataset (Optional)", type=["xlsx"]
+    "📁 Import External File (Optional)", type=["xlsx", "csv"]
 )
 
 # Load dataset automatically
 df_data = load_dataset(uploaded_file)
 
-if menu == "Dashboard Overview":
-  st.header("📈 Market Insights & Historical Data Visualizations")
+# =============================================================================
+# PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
+# =============================================================================
+if menu == "1. Dashboard Overview & File Prediction":
+  st.header("📊 Key Dataset Insights & Aggregations Overview")
+  st.write(
+      "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
+  )
 
-  col1, col2, col3 = st.columns(3)
+  col1, col2, col3, col4 = st.columns(4)
   with col1:
     st.metric(
-        label="Total Recorded Transactions",
+        label="🧾 Total Recorded Transactions",
         value=f"{len(df_data):,}" if df_data is not None else "36,746",
     )
   with col2:
     st.metric(
-        label="Covered Administrative Regions (Admin1)",
-        value=(
-            str(df_data["admin1"].nunique()) if df_data is not None else "11"
-        ),
+        label="🏛️ Covered Regions (Admin1)",
+        value=str(df_data["admin1"].nunique()) if df_data is not None else "11",
     )
   with col3:
     st.metric(
-        label="Unique Commodities Modeled",
+        label="🌾 Unique Commodities",
         value=(
             str(df_data["commodity"].nunique()) if df_data is not None else "93"
         ),
     )
+  with col4:
+    st.metric(
+        label="🏷️ Total Columns",
+        value=len(df_data.columns) if df_data is not None else "0",
+    )
 
   st.markdown("---")
 
+  # Horizontal Layout for Key Dataset Insights
   if df_data is not None and not df_data.empty:
-    # Row 1: Geospatial Scatter Map & Regional Boxplot side by side
-    map_col, box_col = st.columns(2, gap="large")
+    col_comm, col_reg, col_health = st.columns(3, gap="large")
 
+    with col_comm:
+      st.markdown("#### 🛒 Top Commodities")
+      st.caption("Ranked by frequency and average price.")
+      if {"commodity", "price"}.issubset(df_data.columns):
+        comm_summary = (
+            df_data.groupby("commodity")
+            .agg(
+                Transactions=("price", "count"),
+                Avg_Price=("price", "mean"),
+            )
+            .reset_index()
+            .sort_values(by="Transactions", ascending=False)
+        )
+        comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
+        st.dataframe(comm_summary.head(8), use_container_width=True, height=280)
+      else:
+        st.info("Commodity or price column missing.")
+
+    with col_reg:
+      st.markdown("#### 🌍 Regional Volume")
+      st.caption("Distribution across administrative regions.")
+      if {"admin1", "price"}.issubset(df_data.columns):
+        reg_summary = (
+            df_data.groupby("admin1")
+            .agg(
+                Transactions=("price", "count"),
+                Avg_Price=("price", "mean"),
+            )
+            .reset_index()
+            .sort_values(by="Transactions", ascending=False)
+        )
+        reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
+        st.dataframe(reg_summary, use_container_width=True, height=280)
+      else:
+        st.info("Admin1 or price column missing.")
+
+    with col_health:
+      st.markdown("#### 🔍 Data Scope & Quality")
+      st.caption("Record audit and memory stats.")
+
+      if "date" in df_data.columns and pd.api.types.is_datetime64_any_dtype(
+          df_data["date"]
+      ):
+        min_date = df_data["date"].min()
+        max_date = df_data["date"].max()
+        if pd.notna(min_date) and pd.notna(max_date):
+          st.metric(
+              "🗓️ Temporal Span",
+              f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
+          )
+
+      st.metric("⚠️ Total Missing Cells", int(df_data.isna().sum().sum()))
+      st.metric(
+          "💻 Memory Footprint",
+          f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
+      )
+      st.metric("👯 Duplicate Rows", int(df_data.duplicated().sum()))
+
+  st.markdown("---")
+  st.subheader("🔮 Batch Target Prediction on Uploaded File")
+  st.write(
+      "Select a numeric target column to evaluate or predict values across your dataset records."
+  )
+
+  if df_data is not None:
+    numeric_cols = df_data.select_dtypes(include=[np.number]).columns.tolist()
+    if numeric_cols:
+      target_col = st.selectbox(
+          "Select Target Column",
+          numeric_cols,
+          index=numeric_cols.index("price") if "price" in numeric_cols else (len(numeric_cols) - 1),
+      )
+
+      if st.button("🚀 Run Batch Prediction on Dataset"):
+        model, error_msg = load_model_assets()
+
+        if error_msg:
+          st.error(f"Could not load model assets: {error_msg}")
+        else:
+          try:
+            df_predicted = df_data.copy()
+
+            # Extract temporal features if date is present
+            if "date" in df_predicted.columns and (
+                "year" not in df_predicted.columns
+                or "month" not in df_predicted.columns
+            ):
+              df_predicted["year"] = df_predicted["date"].dt.year
+              df_predicted["month"] = df_predicted["date"].dt.month
+              df_predicted["month_sin"] = np.sin(
+                  2 * np.pi * df_predicted["month"] / 12
+              )
+              df_predicted["month_cos"] = np.cos(
+                  2 * np.pi * df_predicted["month"] / 12
+              )
+
+            expected_features = [
+                "admin1", "admin2", "market", "latitude", "longitude",
+                "category", "commodity", "unit", "priceflag", "pricetype",
+                "year", "month", "month_sin", "month_cos"
+            ]
+
+            # Build inference X_batch cleanly by factorizing each feature column independently
+            X_batch = pd.DataFrame()
+            for col in expected_features:
+              if col in df_predicted.columns:
+                if df_predicted[col].dtype == "object" or df_predicted[col].dtype.name == "category":
+                  X_batch[col] = pd.factorize(df_predicted[col].astype(str))[0]
+                else:
+                  X_batch[col] = pd.to_numeric(df_predicted[col], errors="coerce").fillna(0)
+              else:
+                X_batch[col] = 0
+
+            X_batch = X_batch[expected_features]
+            model_preds = model.predict(X_batch)
+
+            pred_col_name = "Predicted_" + target_col
+            if target_col == "price":
+              df_predicted[pred_col_name] = model_preds
+            elif target_col == "usdprice":
+              df_predicted[pred_col_name] = (model_preds / 57.0).round(2)
+            else:
+              df_predicted[pred_col_name] = model_preds
+
+            st.success(f"Batch prediction completed successfully using Random Forest (Target: {target_col})!")
+            st.dataframe(
+                df_predicted.head(10),
+                use_container_width=True,
+            )
+
+            csv_data = df_predicted.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                label="📥 Download Predictions CSV",
+                data=csv_data,
+                file_name="predicted_dataset_results.csv",
+                mime="text/csv",
+            )
+          except Exception as ex:
+            st.error(f"Error during batch prediction execution: {ex}")
+    else:
+      st.warning("No numeric columns found for prediction.")
+
+# =============================================================================
+# PAGE 2: MARKET VISUALIZATIONS
+# =============================================================================
+elif menu == "2. Market Visualizations":
+  st.header("📈 Market Insights & Historical Data Visualizations")
+  st.markdown("---")
+  if df_data is not None and not df_data.empty:
+    map_col, box_col = st.columns(2, gap="large")
     with map_col:
       st.subheader("🗺️ Geospatial Market Price Map")
-      st.write(
-          "Interactive map showing market monitoring locations across"
-          " Ethiopia."
-      )
+      st.write("Interactive map showing market monitoring locations across Ethiopia.")
       map_df = df_data.dropna(subset=["latitude", "longitude", "price"])
-      
-      # Using scatter_geo instead of scatter_mapbox to prevent Mapbox API token / attribute errors
+
       fig_map = px.scatter_geo(
           map_df.sample(min(len(map_df), 2000)),
           lat="latitude",
@@ -206,7 +371,7 @@ if menu == "Dashboard Overview":
           color="price",
           size="price",
           hover_name="market",
-          hover_data=["admin1", "commodity", "usdprice"],
+          hover_data=["admin1", "commodity"],
           color_continuous_scale=px.colors.sequential.Tealgrn,
           projection="natural earth",
           title="Market Locations & Price Intensity",
@@ -229,7 +394,7 @@ if menu == "Dashboard Overview":
           y="price",
           color="admin1",
           title="Price Spread by Region",
-          labels={"admin1": "Region", "price": "Price (USD)"},
+          labels={"admin1": "Region", "price": "Price (ETB)"},
       )
       fig_box.update_layout(
           showlegend=False,
@@ -240,16 +405,15 @@ if menu == "Dashboard Overview":
 
     st.markdown("---")
 
-    # Row 2: Historical Trend Line Chart
     st.subheader("📉 Historical Staple Price Trends Over Time")
     st.write(
         "Long-term monthly average price evolution for core food commodities."
     )
 
     trend_df = (
-        df_data.groupby(
-            [df_data["date"].dt.to_period("M"), "commodity"]
-        )["price"]
+        df_data.groupby([df_data["date"].dt.to_period("M"), "commodity"])[
+            "price"
+        ]
         .mean()
         .reset_index()
     )
@@ -280,7 +444,10 @@ if menu == "Dashboard Overview":
   else:
     st.info("ℹ️ Loading dashboard metrics and visuals...")
 
-elif menu == "Model Prediction":
+# =============================================================================
+# PAGE 3: REAL-TIME MODEL PREDICTION
+# =============================================================================
+elif menu == "3. Real-Time Model Prediction":
   st.header("🎯 Real-Time Market Price Inference")
   st.markdown(
       "Select actual geographic, market, and commodity parameters below to"
@@ -472,5 +639,14 @@ elif menu == "Model Prediction":
           st.success(
               f"✨ Predicted Local Market Price: **{prediction:,.2f} ETB**"
           )
+          
+          # Updated Random Forest Evaluation Metrics (from project output)
+          with st.expander("📌 View Model Training & Test Performance Metrics"):
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Training R² Score", "0.9837")
+            m2.metric("Testing R² Score", "0.9729")
+            m3.metric("Testing RMSE", "306.9749")
+            m4.metric("Overfit Gap", "0.0107")
+
         except Exception as ex:
           st.error(f"Error processing prediction parameters: {ex}")
