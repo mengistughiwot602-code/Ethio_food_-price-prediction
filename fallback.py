@@ -85,7 +85,7 @@ def load_model_assets():
     return None, str(e)
 
 
-# Bulletproof Dataset Loader with Guaranteed Safe Fallbacks
+# Strict Dataset Loader with Validation Check for Custom Uploads
 @st.cache_data
 def load_dataset(uploaded_file=None):
   try:
@@ -94,6 +94,11 @@ def load_dataset(uploaded_file=None):
         df = pd.read_csv(uploaded_file, header=0)
       else:
         df = pd.read_excel(uploaded_file, header=0)
+
+      core_features = ["admin1", "commodity", "latitude", "longitude", "price"]
+      matched = sum(1 for f in core_features if f in df.columns)
+      if matched < 2:
+        return pd.DataFrame()  # Empty frame flags invalid structure
     elif os.path.exists("wfp_food_prices_et.xlsx"):
       df = pd.read_excel("wfp_food_prices_et.xlsx", header=0)
     else:
@@ -101,17 +106,19 @@ def load_dataset(uploaded_file=None):
       if excel_files:
         df = pd.read_excel(excel_files[0], header=0)
       else:
-        raise FileNotFoundError("No Excel file found locally.")
+        raise FileNotFoundError("No dataset file found locally.")
 
     if len(df) > 0:
       df = df.drop(0, errors="ignore").reset_index(drop=True)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df["price"] = pd.to_numeric(df["price"], errors="coerce")
-    df["usdprice"] = pd.to_numeric(df["usdprice"], errors="coerce")
-    df["latitude"] = pd.to_numeric(df["latitude"], errors="coerce")
-    df["longitude"] = pd.to_numeric(df["longitude"], errors="coerce")
+    if "date" in df.columns:
+      df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    for col in ["price", "usdprice", "latitude", "longitude"]:
+      if col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
     return df
   except Exception as e:
+    if uploaded_file is not None:
+      return pd.DataFrame()
     np.random.seed(42)
     n_rows = 500
     return pd.DataFrame({
@@ -150,30 +157,30 @@ st.markdown(
     " forecasting and price intelligence."
 )
 
-# Navigation Sidebar & Override Option
+# Navigation Sidebar & File Upload Option
 st.sidebar.markdown("### Navigation Menu")
 menu = st.sidebar.radio(
     "Go to",
     [
-        "1. Dashboard Overview & File Prediction",
-        "2. Market Visualizations",
-        "3. Real-Time Model Prediction",
+        "📊 1. Market Intelligence & Overview",
+        "📈 2. Visualizations & Analytics",
+        "🎯 3. Real-Time Model Prediction",
     ],
     label_visibility="collapsed",
 )
 
 st.sidebar.markdown("---")
 uploaded_file = st.sidebar.file_uploader(
-    "📁 Import External File (Optional)", type=["xlsx", "csv"]
+    "📁 Upload Custom Dataset (Optional)", type=["xlsx", "csv"]
 )
 
 # Load dataset automatically
 df_data = load_dataset(uploaded_file)
 
 # =============================================================================
-# PAGE 1: DASHBOARD OVERVIEW & FILE PREDICTION
+# PAGE 1: MARKET INTELLIGENCE & OVERVIEW
 # =============================================================================
-if menu == "1. Dashboard Overview & File Prediction":
+if menu == "📊 1. Market Intelligence & Overview":
   st.header("📊 Key Dataset Insights & Aggregations Overview")
   st.write(
       "Review core dataset aggregations, regional data health, and run batch target predictions on your active dataset file."
@@ -183,69 +190,75 @@ if menu == "1. Dashboard Overview & File Prediction":
   with col1:
     st.metric(
         label="🧾 Total Recorded Transactions",
-        value=f"{len(df_data):,}" if df_data is not None else "36,746",
+        value=f"{len(df_data):,}" if df_data is not None and not df_data.empty else "0",
     )
   with col2:
     st.metric(
         label="🏛️ Covered Regions (Admin1)",
-        value=str(df_data["admin1"].nunique()) if df_data is not None else "11",
+        value=(
+            str(df_data["admin1"].nunique())
+            if df_data is not None and not df_data.empty and "admin1" in df_data.columns
+            else "0"
+        ),
     )
   with col3:
     st.metric(
         label="🌾 Unique Commodities",
         value=(
-            str(df_data["commodity"].nunique()) if df_data is not None else "93"
+            str(df_data["commodity"].nunique())
+            if df_data is not None and not df_data.empty and "commodity" in df_data.columns
+            else "0"
         ),
     )
   with col4:
     st.metric(
         label="🏷️ Total Columns",
-        value=len(df_data.columns) if df_data is not None else "0",
+        value=len(df_data.columns) if df_data is not None and not df_data.empty else "0",
     )
 
   st.markdown("---")
 
-  # Horizontal Layout for Key Dataset Insights (Optimized 2-Column/Tab Layout to Prevent Clipping)
+  # Optimized 2-Column Layout to Prevent Right-Side Clipping / Cut-off
   if df_data is not None and not df_data.empty:
-    col_comm, col_reg, col_health = st.columns(3, gap="large")
+    col_left, col_right = st.columns([2, 1], gap="large")
 
-    with col_comm:
-      st.markdown("#### 🛒 Top Commodities")
-      st.caption("Ranked by frequency and average price.")
-      if {"commodity", "price"}.issubset(df_data.columns):
-        comm_summary = (
-            df_data.groupby("commodity")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
-        st.dataframe(comm_summary.head(8), use_container_width=True, height=280)
-      else:
-        st.info("Commodity or price column missing.")
+    with col_left:
+      tab1, tab2 = st.tabs(["🛒 Top Commodities", "🌍 Regional Volume"])
+      with tab1:
+        st.caption("Ranked by frequency and average price.")
+        if {"commodity", "price"}.issubset(df_data.columns):
+          comm_summary = (
+              df_data.groupby("commodity")
+              .agg(
+                  Transactions=("price", "count"),
+                  Avg_Price=("price", "mean"),
+              )
+              .reset_index()
+              .sort_values(by="Transactions", ascending=False)
+          )
+          comm_summary["Avg_Price"] = comm_summary["Avg_Price"].round(2)
+          st.dataframe(comm_summary.head(10), use_container_width=True, height=300)
+        else:
+          st.info("Commodity or price column missing.")
 
-    with col_reg:
-      st.markdown("#### 🌍 Regional Volume")
-      st.caption("Distribution across administrative regions.")
-      if {"admin1", "price"}.issubset(df_data.columns):
-        reg_summary = (
-            df_data.groupby("admin1")
-            .agg(
-                Transactions=("price", "count"),
-                Avg_Price=("price", "mean"),
-            )
-            .reset_index()
-            .sort_values(by="Transactions", ascending=False)
-        )
-        reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
-        st.dataframe(reg_summary, use_container_width=True, height=280)
-      else:
-        st.info("Admin1 or price column missing.")
+      with tab2:
+        st.caption("Distribution across administrative regions.")
+        if {"admin1", "price"}.issubset(df_data.columns):
+          reg_summary = (
+              df_data.groupby("admin1")
+              .agg(
+                  Transactions=("price", "count"),
+                  Avg_Price=("price", "mean"),
+              )
+              .reset_index()
+              .sort_values(by="Transactions", ascending=False)
+          )
+          reg_summary["Avg_Price"] = reg_summary["Avg_Price"].round(2)
+          st.dataframe(reg_summary, use_container_width=True, height=300)
+        else:
+          st.info("Admin1 or price column missing.")
 
-    with col_health:
+    with col_right:
       st.markdown("#### 🔍 Data Scope & Quality")
       st.caption("Record audit and memory stats.")
 
@@ -256,143 +269,135 @@ if menu == "1. Dashboard Overview & File Prediction":
         max_date = df_data["date"].max()
         if pd.notna(min_date) and pd.notna(max_date):
           st.metric(
-              "🗓️ Temporal Span",
+              "📅 Temporal Span",
               f"{min_date.strftime('%Y-%m')} to {max_date.strftime('%Y-%m')}",
           )
+        else:
+          st.metric("📅 Temporal Span", "N/A")
+      else:
+        st.metric("📅 Temporal Span", "N/A")
 
-      st.metric("⚠️ Total Missing Cells", int(df_data.isna().sum().sum()))
       st.metric(
-          "💻 Memory Footprint",
+          "🧹 Total Missing Cells", int(df_data.isna().sum().sum())
+      )
+      st.metric(
+          "💾 Memory Footprint",
           f"{df_data.memory_usage(deep=True).sum() / (1024*1024):.2f} MB",
       )
-      st.metric("👯 Duplicate Rows", int(df_data.duplicated().sum()))
+      st.metric("✨ Duplicate Rows", int(df_data.duplicated().sum()))
 
   st.markdown("---")
-  st.subheader("🔮 Batch Target Prediction on Uploaded File")
+  st.subheader("🔮 Batch Price Prediction")
   st.write(
-      "Select a numeric target column to evaluate or predict values across your dataset records."
+      "Run the trained machine learning model across all records in your active dataset."
   )
 
-  if df_data is not None:
-    numeric_cols = df_data.select_dtypes(include=[np.number]).columns.tolist()
-    if numeric_cols:
-      target_col = st.selectbox(
-          "Select Target Column",
-          numeric_cols,
-          index=numeric_cols.index("price") if "price" in numeric_cols else (len(numeric_cols) - 1),
-      )
+  if uploaded_file is None:
+    st.info(
+        "ℹ️ No custom file uploaded. Currently running predictions on the **default system dataset**. (You can upload an optional CSV or Excel file in the sidebar if you want to test external data)."
+    )
+  else:
+    st.success(f"📁 Active custom file loaded: **{uploaded_file.name}**")
 
-      if st.button("🚀 Run Batch Prediction on Dataset"):
-        model, error_msg = load_model_assets()
+  if df_data is None or df_data.empty:
+    st.error(
+        "⚠️ **Dataset Feature Mismatch:** The uploaded dataset's features are not similar to the model's training data. Please ensure your file contains the correct regional, commodity, or spatial columns."
+    )
+  else:
+    numeric_cols = [c for c in df_data.select_dtypes(include=[np.number]).columns if c not in ["year", "month", "month_sin", "month_cos"]]
+    selected_target = st.selectbox(
+        "Select Numeric Column to Evaluate / Predict",
+        numeric_cols,
+        index=numeric_cols.index("price") if "price" in numeric_cols else 0,
+        key="batch_target_selector"
+    )
 
-        if error_msg:
-          st.error(f"Could not load model assets: {error_msg}")
-        else:
-          try:
-            df_predicted = df_data.copy()
+    if st.button("🚀 Run Batch Prediction with Model"):
+      model, error_msg = load_model_assets()
 
-            # Extract temporal features if date is present
-            if "date" in df_predicted.columns and (
-                "year" not in df_predicted.columns
-                or "month" not in df_predicted.columns
-            ):
-              df_predicted["year"] = df_predicted["date"].dt.year
-              df_predicted["month"] = df_predicted["date"].dt.month
-              df_predicted["month_sin"] = np.sin(
-                  2 * np.pi * df_predicted["month"] / 12
-              )
-              df_predicted["month_cos"] = np.cos(
-                  2 * np.pi * df_predicted["month"] / 12
-              )
+      if error_msg:
+        st.error(f"Could not load model assets: {error_msg}")
+      else:
+        try:
+          df_predicted = df_data.copy()
 
-            # Define standard mapping dictionaries for model inference
-            admin1_mapping = {
-                "Addis Ababa": 7, "Oromia": 8, "Amhara": 2, "Tigray": 10,
-                "Somali": 5, "SNNPR / Sidama": 6, "Afar": 1, "Dire Dawa": 11,
-                "B. Gumuz": 3, "Harari": 6, "Gambela": 5
-            }
-            admin2_mapping = {
-                "Addis Ababa Zone": 13, "Adama Special Zone": 14, "Bahir Dar Special Zone": 15,
-                "Hawassa Special Zone": 16, "Mekelle Special Zone": 17, "Dire Dawa Zone": 18,
-                "East Shewa Zone": 19, "West Gojjam Zone": 20, "North Shewa Zone": 21,
-                "South Wollo Zone": 22, "AA ZONE1": 13, "Administrativ": 14, "DIRE DAWA": 18, "MEKELE": 17
-            }
-            category_mapping = {
-                "Cereals and Tubers": 0, "Pulses and Nuts": 1, "Vegetables and Fruits": 2, "Meat, Fish and Eggs": 3,
-                "cereals and tubers": 0, "pulses and nuts": 1, "vegetables and fruits": 2, "meat, fish and eggs": 3
-            }
-            commodity_mapping = {
-                "Maize (White)": 83, "Teff (Mixed)": 12, "Wheat": 45, "Sorghum": 28, "Barley": 19,
-                "Maize (white)": 83, "Sorghum (white)": 28, "Teff": 12, "Wheat (white)": 45
-            }
-            unit_mapping = {"KG": 0, "Quintal": 1, "Pound": 2, "Litre": 3, "100 KG": 1}
-            priceflag_mapping = {"Actual / Verified": 0, "Estimated / Imputed": 1, "actual": 0, "estimated": 1}
-            pricetype_mapping = {"Retail": 0, "Wholesale": 1, "retail": 0, "Wholesale": 1, "wholesale": 1}
-            market_mapping = {
-                "Addis Ababa Market": 103, "Bahir Dar Market": 104, "Hawassa Market": 105,
-                "Adama Market": 106, "Mekelle Market": 107, "Addis Ababa": 103, "Baher Dar": 104, "Diredawa": 105, "Mekele": 107
-            }
+          # Extract temporal features if date is present
+          if "date" in df_predicted.columns and (
+              "year" not in df_predicted.columns
+              or "month" not in df_predicted.columns
+          ):
+            df_predicted["date"] = pd.to_datetime(
+                df_predicted["date"], errors="coerce"
+            )
+            df_predicted["year"] = df_predicted["date"].dt.year
+            df_predicted["month"] = df_predicted["date"].dt.month
+            df_predicted["month_sin"] = np.sin(
+                2 * np.pi * df_predicted["month"] / 12
+            )
+            df_predicted["month_cos"] = np.cos(
+                2 * np.pi * df_predicted["month"] / 12
+            )
 
-            # Build inference dataframe with mapped integers matching the trained model format
-            X_batch = pd.DataFrame()
-            X_batch["admin1"] = df_predicted["admin1"].astype(str).map(admin1_mapping).fillna(7)
-            X_batch["admin2"] = df_predicted["admin2"].astype(str).map(admin2_mapping).fillna(13)
-            X_batch["market"] = df_predicted["market"].astype(str).map(market_mapping).fillna(103)
-            X_batch["latitude"] = pd.to_numeric(df_predicted["latitude"], errors="coerce").fillna(9.02)
-            X_batch["longitude"] = pd.to_numeric(df_predicted["longitude"], errors="coerce").fillna(38.75)
-            X_batch["category"] = df_predicted["category"].astype(str).map(category_mapping).fillna(0)
-            X_batch["commodity"] = df_predicted["commodity"].astype(str).map(commodity_mapping).fillna(83)
-            X_batch["unit"] = df_predicted["unit"].astype(str).map(unit_mapping).fillna(0)
-            X_batch["priceflag"] = df_predicted["priceflag"].astype(str).map(priceflag_mapping).fillna(0)
-            X_batch["pricetype"] = df_predicted["pricetype"].astype(str).map(pricetype_mapping).fillna(1)
-            
-            # Ensure temporal features are present
-            X_batch["year"] = df_predicted["year"] if "year" in df_predicted.columns else 2022
-            X_batch["month"] = df_predicted["month"] if "month" in df_predicted.columns else 12
-            X_batch["month_sin"] = df_predicted["month_sin"] if "month_sin" in df_predicted.columns else 0.5
-            X_batch["month_cos"] = df_predicted["month_cos"] if "month_cos" in df_predicted.columns else 0.866
+          expected_features = [
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "category",
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
+          ]
 
-            expected_cols = [
-                "admin1", "admin2", "market", "latitude", "longitude",
-                "category", "commodity", "unit", "priceflag", "pricetype",
-                "year", "month", "month_sin", "month_cos"
-            ]
-            X_batch = X_batch[expected_cols]
-
-            # Generate true predictions using the loaded model
-            model_preds = model.predict(X_batch)
-
-            # Assign prediction based on target selection
-            pred_col_name = "Predicted_" + target_col
-            if target_col == "price":
-              df_predicted[pred_col_name] = model_preds
-            elif target_col == "usdprice":
-              df_predicted[pred_col_name] = (model_preds / 57.0).round(2)
+          # Create X_batch by properly factorizing every object/text column independently
+          X_batch = pd.DataFrame()
+          for col in expected_features:
+            if col in df_predicted.columns:
+              if df_predicted[col].dtype == "object":
+                X_batch[col] = pd.factorize(df_predicted[col].astype(str))[0]
+              else:
+                X_batch[col] = pd.to_numeric(
+                    df_predicted[col], errors="coerce"
+                ).fillna(0)
             else:
-              df_predicted[pred_col_name] = model_preds
+              X_batch[col] = 0
 
-            st.success(f"Batch prediction completed successfully using Random Forest (Target: {target_col})!")
-            st.dataframe(
-                df_predicted.head(10),
-                use_container_width=True,
-            )
+          X_batch = X_batch[expected_features]
+          base_preds = model.predict(X_batch)
 
-            csv_data = df_predicted.to_csv(index=False).encode("utf-8")
-            st.download_button(
-                label="📥 Download Predictions CSV",
-                data=csv_data,
-                file_name="predicted_dataset_results.csv",
-                mime="text/csv",
-            )
-          except Exception as ex:
-            st.error(f"Error during batch prediction execution: {ex}")
-    else:
-      st.warning("No numeric columns found for prediction.")
+          # Predict ONLY the user's chosen target column dynamically
+          if selected_target == "price":
+            df_predicted["Predicted_price"] = base_preds
+          elif selected_target == "usdprice":
+            df_predicted["Predicted_usdprice"] = (base_preds / 57.0).round(2)
+          else:
+            df_predicted[f"Predicted_{selected_target}"] = base_preds
+
+          st.success(
+              f"Batch prediction completed successfully using Random Forest (Target: {selected_target})!"
+          )
+          st.dataframe(df_predicted.head(10), use_container_width=True)
+
+          csv_data = df_predicted.to_csv(index=False).encode("utf-8")
+          st.download_button(
+              label="📥 Download Predictions CSV",
+              data=csv_data,
+              file_name="predicted_dataset_results.csv",
+              mime="text/csv",
+          )
+        except Exception as ex:
+          st.error(f"Error during batch prediction execution: {ex}")
 
 # =============================================================================
-# PAGE 2: MARKET VISUALIZATIONS
+# PAGE 2: VISUALIZATIONS & ANALYTICS
 # =============================================================================
-elif menu == "2. Market Visualizations":
+elif menu == "📈 2. Visualizations & Analytics":
   st.header("📈 Market Insights & Historical Data Visualizations")
   st.markdown("---")
   if df_data is not None and not df_data.empty:
@@ -400,46 +405,58 @@ elif menu == "2. Market Visualizations":
     with map_col:
       st.subheader("🗺️ Geospatial Market Price Map")
       st.write("Interactive map showing market monitoring locations across Ethiopia.")
-      map_df = df_data.dropna(subset=["latitude", "longitude", "price"])
+      if {"latitude", "longitude", "price"}.issubset(df_data.columns):
+        map_df = df_data.dropna(subset=["latitude", "longitude", "price"])
 
-      fig_map = px.scatter_geo(
-          map_df.sample(min(len(map_df), 2000)),
-          lat="latitude",
-          lon="longitude",
-          color="price",
-          size="price",
-          hover_name="market",
-          hover_data=["admin1", "commodity"],
-          color_continuous_scale=px.colors.sequential.Tealgrn,
-          projection="natural earth",
-          title="Market Locations & Price Intensity",
-      )
-      fig_map.update_geos(
-          center={"lat": 9.145, "lon": 40.489},
-          projection_scale=7,
-          showcountries=True,
-          countrycolor="gray",
-      )
-      fig_map.update_layout(margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=400)
-      st.plotly_chart(fig_map, use_container_width=True)
+        fig_map = px.scatter_geo(
+            map_df.sample(min(len(map_df), 2000)),
+            lat="latitude",
+            lon="longitude",
+            color="price",
+            size="price",
+            hover_name="market" if "market" in map_df.columns else None,
+            hover_data=(
+                ["admin1", "commodity"]
+                if {"admin1", "commodity"}.issubset(map_df.columns)
+                else None
+            ),
+            color_continuous_scale=px.colors.sequential.Tealgrn,
+            projection="natural earth",
+            title="Market Locations & Price Intensity",
+        )
+        fig_map.update_geos(
+            center={"lat": 9.145, "lon": 40.489},
+            projection_scale=7,
+            showcountries=True,
+            countrycolor="gray",
+        )
+        fig_map.update_layout(
+            margin={"r": 0, "t": 40, "l": 0, "b": 0}, height=400
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
+      else:
+        st.info("Latitude, longitude, or price columns required for map view.")
 
     with box_col:
       st.subheader("📊 Regional Price Distributions")
-      st.write("price variance and outliers across administrative regions.")
-      fig_box = px.box(
-          df_data.dropna(subset=["admin1", "price"]),
-          x="admin1",
-          y="price",
-          color="admin1",
-          title="Price Spread by Region",
-          labels={"admin1": "Region", "price": "Price (ETB)"},
-      )
-      fig_box.update_layout(
-          showlegend=False,
-          margin={"r": 0, "t": 40, "l": 0, "b": 0},
-          height=400,
-      )
-      st.plotly_chart(fig_box, use_container_width=True)
+      st.write("Price variance and outliers across administrative regions.")
+      if {"admin1", "price"}.issubset(df_data.columns):
+        fig_box = px.box(
+            df_data.dropna(subset=["admin1", "price"]),
+            x="admin1",
+            y="price",
+            color="admin1",
+            title="Price Spread by Region",
+            labels={"admin1": "Region", "price": "Price (ETB)"},
+        )
+        fig_box.update_layout(
+            showlegend=False,
+            margin={"r": 0, "t": 40, "l": 0, "b": 0},
+            height=400,
+        )
+        st.plotly_chart(fig_box, use_container_width=True)
+      else:
+        st.info("Admin1 and price columns required for box plot view.")
 
     st.markdown("---")
 
@@ -448,36 +465,39 @@ elif menu == "2. Market Visualizations":
         "Long-term monthly average price evolution for core food commodities."
     )
 
-    trend_df = (
-        df_data.groupby([df_data["date"].dt.to_period("M"), "commodity"])[
-            "price"
-        ]
-        .mean()
-        .reset_index()
-    )
-    trend_df["date"] = trend_df["date"].dt.to_timestamp()
+    if {"date", "commodity", "price"}.issubset(df_data.columns):
+      trend_df = (
+          df_data.groupby([df_data["date"].dt.to_period("M"), "commodity"])[
+              "price"
+          ]
+          .mean()
+          .reset_index()
+      )
+      trend_df["date"] = trend_df["date"].dt.to_timestamp()
 
-    major_staples = ["Maize (white)", "Wheat", "Sorghum", "Rice", "Teff"]
-    available_staples = [
-        s for s in major_staples if s in trend_df["commodity"].unique()
-    ]
-    if not available_staples:
-      available_staples = trend_df["commodity"].unique()[:4]
+      major_staples = ["Maize (white)", "Wheat", "Sorghum", "Rice", "Teff"]
+      available_staples = [
+          s for s in major_staples if s in trend_df["commodity"].unique()
+      ]
+      if not available_staples:
+        available_staples = trend_df["commodity"].unique()[:4]
 
-    filtered_trend = trend_df[trend_df["commodity"].isin(available_staples)]
+      filtered_trend = trend_df[trend_df["commodity"].isin(available_staples)]
 
-    fig_trend = px.line(
-        filtered_trend,
-        x="date",
-        y="price",
-        color="commodity",
-        title="Monthly Average Price Trend (ETB)",
-        labels={"usdprice": "Price in ETB", "date": "Date"},
-    )
-    fig_trend.update_layout(
-        height=450, margin={"r": 0, "t": 40, "l": 0, "b": 0}
-    )
-    st.plotly_chart(fig_trend, use_container_width=True)
+      fig_trend = px.line(
+          filtered_trend,
+          x="date",
+          y="price",
+          color="commodity",
+          title="Monthly Average Price Trend (ETB)",
+          labels={"price": "Price in ETB", "date": "Date"},
+      )
+      fig_trend.update_layout(
+          height=450, margin={"r": 0, "t": 40, "l": 0, "b": 0}
+      )
+      st.plotly_chart(fig_trend, use_container_width=True)
+    else:
+      st.info("Date, commodity, and price columns required for trend analysis.")
 
   else:
     st.info("ℹ️ Loading dashboard metrics and visuals...")
@@ -485,7 +505,7 @@ elif menu == "2. Market Visualizations":
 # =============================================================================
 # PAGE 3: REAL-TIME MODEL PREDICTION
 # =============================================================================
-elif menu == "3. Real-Time Model Prediction":
+elif menu == "🎯 3. Real-Time Model Prediction":
   st.header("🎯 Real-Time Market Price Inference")
   st.markdown(
       "Select actual geographic, market, and commodity parameters below to"
@@ -677,8 +697,8 @@ elif menu == "3. Real-Time Model Prediction":
           st.success(
               f"✨ Predicted Local Market Price: **{prediction:,.2f} ETB**"
           )
-          
-          # Updated Random Forest Evaluation Metrics (from project output)
+
+          # Updated Random Forest Evaluation Metrics
           with st.expander("📌 View Model Training & Test Performance Metrics"):
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("Training R² Score", "0.9837")
