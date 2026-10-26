@@ -337,55 +337,36 @@ if menu == "📊 1. Market Intelligence & Overview":
                 2 * np.pi * df_predicted["month"] / 12
             )
 
-          admin1_mapping = {
-              "Addis Ababa": 7, "Oromia": 8, "Amhara": 2, "Tigray": 10,
-              "Somali": 5, "SNNPR / Sidama": 6, "Afar": 1, "Dire Dawa": 11,
-              "B. Gumuz": 3, "Harari": 6, "Gambela": 5
-          }
-          admin2_mapping = {
-              "Addis Ababa Zone": 13, "Adama Special Zone": 14, "Bahir Dar Special Zone": 15,
-              "Hawassa Special Zone": 16, "Mekelle Special Zone": 17, "Dire Dawa Zone": 18,
-              "East Shewa Zone": 19, "West Gojjam Zone": 20, "North Shewa Zone": 21,
-              "South Wollo Zone": 22, "AA ZONE1": 13, "Administrativ": 14, "DIRE DAWA": 18, "MEKELE": 17
-          }
-          category_mapping = {
-              "Cereals and Tubers": 0, "Pulses and Nuts": 1, "Vegetables and Fruits": 2, "Meat, Fish and Eggs": 3,
-              "cereals and tubers": 0, "pulses and nuts": 1, "vegetables and fruits": 2, "meat, fish and eggs": 3
-          }
-          commodity_mapping = {
-              "Maize (White)": 83, "Teff (Mixed)": 12, "Wheat": 45, "Sorghum": 28, "Barley": 19,
-              "Maize (white)": 83, "Sorghum (white)": 28, "Teff": 12, "Wheat (white)": 45
-          }
-          unit_mapping = {"KG": 0, "Quintal": 1, "Pound": 2, "Litre": 3, "100 KG": 1}
-          priceflag_mapping = {"Actual / Verified": 0, "Estimated / Imputed": 1, "actual": 0, "estimated": 1}
-          pricetype_mapping = {"Retail": 0, "Wholesale": 1, "retail": 0, "wholesale": 1}
-          market_mapping = {
-              "Addis Ababa Market": 103, "Bahir Dar Market": 104, "Hawassa Market": 105,
-              "Adama Market": 106, "Mekelle Market": 107, "Addis Ababa": 103, "Baher Dar": 104, "Diredawa": 105, "Mekele": 107
-          }
-
-          X_batch = pd.DataFrame()
-          X_batch["admin1"] = df_predicted["admin1"].astype(str).map(admin1_mapping).fillna(7)
-          X_batch["admin2"] = df_predicted["admin2"].astype(str).map(admin2_mapping).fillna(13)
-          X_batch["market"] = df_predicted["market"].astype(str).map(market_mapping).fillna(103)
-          X_batch["latitude"] = pd.to_numeric(df_predicted["latitude"], errors="coerce").fillna(9.02)
-          X_batch["longitude"] = pd.to_numeric(df_predicted["longitude"], errors="coerce").fillna(38.75)
-          X_batch["category"] = df_predicted["category"].astype(str).map(category_mapping).fillna(0)
-          X_batch["commodity"] = df_predicted["commodity"].astype(str).map(commodity_mapping).fillna(83)
-          X_batch["unit"] = df_predicted["unit"].astype(str).map(unit_mapping).fillna(0)
-          X_batch["priceflag"] = df_predicted["priceflag"].astype(str).map(priceflag_mapping).fillna(0)
-          X_batch["pricetype"] = df_predicted["pricetype"].astype(str).map(pricetype_mapping).fillna(1)
-          
-          X_batch["year"] = df_predicted["year"] if "year" in df_predicted.columns else 2022
-          X_batch["month"] = df_predicted["month"] if "month" in df_predicted.columns else 12
-          X_batch["month_sin"] = df_predicted["month_sin"] if "month_sin" in df_predicted.columns else 0.5
-          X_batch["month_cos"] = df_predicted["month_cos"] if "month_cos" in df_predicted.columns else 0.866
-
           expected_features = [
-              "admin1", "admin2", "market", "latitude", "longitude",
-              "category", "commodity", "unit", "priceflag", "pricetype",
-              "year", "month", "month_sin", "month_cos"
+              "admin1",
+              "admin2",
+              "market",
+              "latitude",
+              "longitude",
+              "category",
+              "commodity",
+              "unit",
+              "priceflag",
+              "pricetype",
+              "year",
+              "month",
+              "month_sin",
+              "month_cos",
           ]
+
+          # Build X_batch by factorizing each text column independently to ensure distinct, accurate predictions per row
+          X_batch = pd.DataFrame()
+          for col in expected_features:
+            if col in df_predicted.columns:
+              if df_predicted[col].dtype == "object" or df_predicted[col].dtype.name == "category":
+                X_batch[col] = pd.factorize(df_predicted[col].astype(str))[0]
+              else:
+                X_batch[col] = pd.to_numeric(
+                    df_predicted[col], errors="coerce"
+                ).fillna(0)
+            else:
+              X_batch[col] = 0
+
           X_batch = X_batch[expected_features]
           base_preds = model.predict(X_batch)
 
